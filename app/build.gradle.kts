@@ -1,15 +1,31 @@
+                                                                                
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
-android compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}{ namespace = "ca.grandlake.alert"; compileSdk = 35
-    defaultConfig { applicationId = "ca.grandlake.alert"; minSdk = 26; targetSdk = 35; versionCode = 2; versionName = "0.2.0" }
-}kotlin {
+
+android {
+    namespace = "ca.grandlake.alert"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "ca.grandlake.alert"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 2
+        versionName = "0.2.0"
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+kotlin {
     jvmToolchain(17)
 }
+
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-compose:1.10.1")
