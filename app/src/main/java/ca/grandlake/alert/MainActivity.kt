@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         setContent { GrandLakeAlertApp() }
     }
 }
-OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GrandLakeAlertApp() {
     val context = LocalContext.current
