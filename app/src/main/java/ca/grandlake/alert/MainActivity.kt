@@ -56,13 +56,13 @@ fun GrandLakeAlertApp() {
 
     val tiles = listOf(
         Tile("Weather", "🌦", weather, null),
-        Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca/en/news/nb"),
-        Tile("Fire", "🔥", "Public fire information", "https://www2.gnb.ca/content/gnb/en/departments/public_safety/wildfire.html"),
+        Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca/en/nb/news"),
+        Tile("Fire", "🔥", "Public fire information", "https://www.gnb.ca/en/emergency/fire-watch.html"),
         Tile("Ambulance", "🚑", "Public emergency information", "https://www2.gnb.ca/content/gnb/en/departments/health.html"),
         Tile("Schools", "🏫", "Closures & announcements", "https://www2.gnb.ca/content/gnb/en/departments/education.html"),
         Tile("Buses", "🚌", "School transportation notices", "https://www2.gnb.ca/content/gnb/en/departments/education.html"),
         Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://511.gnb.ca/"),
-        Tile("Fuel", "⛽", "Daily fuel information", "https://www2.gnb.ca/content/gnb/en/departments/energy.html")
+        Tile("Fuel", "⛽", "Daily fuel information", "https://nbeub.ca/current-petroleum-prices-2")
     )
 
     MaterialTheme {
