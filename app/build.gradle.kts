@@ -1,10 +1,8 @@
-                                                                                
-plugins {
+       plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-}
-
-android {
+    id("org.jetbrains.kotlin.plugin.compose")
+}                                                                         
     namespace = "ca.grandlake.alert"
     compileSdk = 35
 
