@@ -82,6 +82,7 @@ fun GrandLakeAlertApp() {
         Tile("Fire", "🔥", "Public fire information", "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA"),
         Tile("Ambulance", "🚑", "Public emergency information", "https://www2.gnb.ca/content/gnb/en/departments/health.html"),
         Tile("Schools", "🏫", "Closures & announcements", "https://www2.gnb.ca/content/gnb/en/departments/education.html"),
+        Tile("Minto School", "🎒", "School news & notices", "https://mems.nbed.ca/"),
         Tile("Buses", "🚌", "School transportation notices", "https://www2.gnb.ca/content/gnb/en/departments/education.html"),
         Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://511.gnb.ca/"),
         Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca/current-petroleum-prices-2")
