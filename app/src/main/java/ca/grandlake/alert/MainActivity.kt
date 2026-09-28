@@ -105,35 +105,6 @@ fun GrandLakeAlertApp() {
 
                 Spacer(Modifier.height(16.dp))
 
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("🎒 Minto School",
-                            style = MaterialTheme.typography.titleLarge)
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Text("School news & notices",
-                            style = MaterialTheme.typography.titleMedium)
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Text("School status: Check for announcements")
-                        Text("Bus status: Check for transportation updates")
-                        Text("Closures: Check for school closure notices")
-
-                        Spacer(Modifier.height(8.dp))
-
-                        TextButton(onClick = {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW,
-                                    Uri.parse("https://mems.nbed.ca/"))
-                            )
-                        }) {
-                            Text("Open Minto School Website")
-                        }
-                    }
-                }
-
                 Spacer(Modifier.height(16.dp))
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
