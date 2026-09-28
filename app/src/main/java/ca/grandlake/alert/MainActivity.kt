@@ -92,20 +92,6 @@ fun GrandLakeAlertApp() {
                 Text("AREA", style = MaterialTheme.typography.labelLarge)
                 Text(area, style = MaterialTheme.typography.headlineSmall)
                 Spacer(Modifier.height(12.dp))
-
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("LIVE STATUS", style = MaterialTheme.typography.labelLarge)
-                        Spacer(Modifier.height(4.dp))
-                        Text(if (weatherUpdated) "Weather connected" else "Connecting…", style = MaterialTheme.typography.titleMedium)
-                        Text("Public information only • Source links open official pages", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-
-                Spacer(Modifier.height(16.dp))
-
-                Spacer(Modifier.height(16.dp))
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
