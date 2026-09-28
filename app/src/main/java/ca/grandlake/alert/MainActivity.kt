@@ -102,7 +102,6 @@ fun GrandLakeAlertApp() {
                     }
                 }
 
-                                }
 
                 Spacer(Modifier.height(16.dp))
 
