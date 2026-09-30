@@ -39,7 +39,7 @@ fun GrandLakeAlertApp() {
     var weather by remember { mutableStateOf("Loading current weather…") }
     var weatherUpdated by remember { mutableStateOf(false) }
     var fuelPrices by remember { mutableStateOf("Loading official prices…") }
-
+    var schoolAlerts by remember { mutableStateOf("Checking ASD-W alerts…") }
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
