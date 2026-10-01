@@ -42,7 +42,7 @@ fun GrandLakeAlertApp() {
     var fuelPrices by remember { mutableStateOf("Loading official prices…") }
     var schoolAlerts by remember { mutableStateOf("Checking ASD-W alerts…") }
 
-    // 1. Live Weather Fetching Block (Fixed strict type parsing)
+    // 1. Live Weather Fetching Block
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
@@ -58,7 +58,7 @@ fun GrandLakeAlertApp() {
         weatherUpdated = true
     }
 
-    // 2. Live Fuel Prices Fetching Block (Fixed list-to-string extraction)
+    // 2. Live Fuel Prices Fetching Block (Fixed Group Index Extraction)
     LaunchedEffect(Unit) {
         fuelPrices = try {
             withContext(Dispatchers.IO) {
@@ -81,7 +81,7 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // 3. Localized School Alerts Fetching Block (Clear confirmation messaging)
+    // 3. Localized School Alerts Fetching Block (Cleaned up boundary to prevent reading page footers)
     LaunchedEffect(Unit) {
         schoolAlerts = try {
             withContext(Dispatchers.IO) {
@@ -92,8 +92,9 @@ fun GrandLakeAlertApp() {
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
+                // Isolates matches explicitly to active transportation logs, avoiding page footer maps
                 val alertMatch = Regex(
-                    "(.*?(?:Zone 8|Minto|Chipman|Bus\\s+#?3\\d{2}).*?)(?=Alerts|Zones|$)",
+                    "(Bus\\s+#?3\\d{2}\\s+.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
                     RegexOption.IGNORE_CASE
                 ).find(plainText)
 
