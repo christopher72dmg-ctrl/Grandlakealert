@@ -3,17 +3,21 @@ package ca.grandlake.alert
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -21,20 +25,25 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
 import org.json.JSONObject
 import java.net.URL
-data class Tile(
+
+private data class Tile(
     val title: String,
     val icon: String,
     val subtitle: String,
@@ -58,8 +67,12 @@ fun GrandLakeAlertApp() {
 
     val context = LocalContext.current
 
+    var area by remember {
+        mutableStateOf("Grand Lake, NB")
+    }
+
     var weather by remember {
-        mutableStateOf("Loading weather…")
+        mutableStateOf("Loading current weather…")
     }
 
     var fuelPrices by remember {
@@ -67,85 +80,83 @@ fun GrandLakeAlertApp() {
     }
 
     var schoolAlerts by remember {
-        mutableStateOf("Checking Minto / Zone 8 alerts…")
+        mutableStateOf("Checking ASD-W alerts…")
     }
 
-    /*
-     * WEATHER
-     */
+    // ---------------------------------------------------------
+    // LIVE WEATHER
+    // ---------------------------------------------------------
+
     LaunchedEffect(Unit) {
 
         weather = try {
 
             withContext(Dispatchers.IO) {
 
-                val url =
-                    "https://api.open-meteo.com/v1/forecast" +
-                            "?latitude=46.00" +
-                            "&longitude=-66.05" +
-                            "&current=temperature_2m,weather_code,wind_speed_10m" +
-                            "&timezone=America%2FHalifax"
-
                 val json = JSONObject(
-                    URL(url).readText()
+                    URL(
+                        "https://api.open-meteo.com/v1/forecast" +
+                                "?latitude=46.0" +
+                                "&longitude=-66.0" +
+                                "&current=temperature_2m,wind_speed_10m"
+                    ).readText()
                 )
 
                 val current = json.getJSONObject("current")
 
-                val temperature =
-                    current.getDouble("temperature_2m")
+                val temp = current.optDouble(
+                    "temperature_2m",
+                    0.0
+                )
 
-                val wind =
-                    current.getDouble("wind_speed_10m")
+                val wind = current.optDouble(
+                    "wind_speed_10m",
+                    0.0
+                )
 
-                "${temperature.toInt()}°C • Wind ${wind.toInt()} km/h"
+                "${temp.toInt()}°C • Wind ${wind.toInt()} km/h"
             }
 
         } catch (_: Exception) {
 
-            "Weather unavailable"
+            "Weather temporarily unavailable"
         }
     }
 
-    /*
-     * FUEL PRICES
-     */
+    // ---------------------------------------------------------
+    // FUEL PRICES
+    // ---------------------------------------------------------
+
     LaunchedEffect(Unit) {
 
         fuelPrices = try {
 
             withContext(Dispatchers.IO) {
 
-                val html =
-                    URL("https://nbeub.ca/current-petroleum-prices-2")
-                        .readText()
+                val html = URL(
+                    "https://nbeub.ca"
+                ).readText()
 
                 val plainText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
-                    .replace("&amp;", "&")
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
-                /*
-                 * Look for the official current maximum
-                 * regular gasoline price.
-                 */
                 val regularMatch = Regex(
-                    "Current Max\\s+Regular\\s+Self-serve\\s+is\\s+#\\s*([0-9]+(?:\\.[0-9]+)?)",
+                    "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)",
                     RegexOption.IGNORE_CASE
                 ).find(plainText)
 
-                /*
-                 * Look for the official current maximum
-                 * diesel price.
-                 */
                 val dieselMatch = Regex(
-                    "Current Max\\s+ultra-low sulphur diesel\\s+Self-serve\\s+is\\s+#\\s*([0-9]+(?:\\.[0-9]+)?)",
+                    "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)",
                     RegexOption.IGNORE_CASE
                 ).find(plainText)
 
-                if (regularMatch != null && dieselMatch != null) {
+                if (
+                    regularMatch != null &&
+                    dieselMatch != null
+                ) {
 
                     val regular =
                         regularMatch.groupValues[1]
@@ -153,108 +164,62 @@ fun GrandLakeAlertApp() {
                     val diesel =
                         dieselMatch.groupValues[1]
 
-                    "Regular ${regular}¢/L • Diesel ${diesel}¢/L"
+                    "Regular $regular¢/L • Diesel $diesel¢/L"
 
                 } else {
 
-                    /*
-                     * Backup search in case the wording
-                     * on the official page changes.
-                     */
-                    val regularBackup = Regex(
-                        "Regular Gasoline\\s+Self-serve\\s+([0-9]+(?:\\.[0-9]+)?)",
-                        RegexOption.IGNORE_CASE
-                    ).find(plainText)
-
-                    val dieselBackup = Regex(
-                        "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+(?:\\.[0-9]+)?)",
-                        RegexOption.IGNORE_CASE
-                    ).find(plainText)
-
-                    if (regularBackup != null && dieselBackup != null) {
-
-                        "Regular ${regularBackup.groupValues[1]}¢/L • Diesel ${dieselBackup.groupValues[1]}¢/L"
-
-                    } else {
-
-                        "Tap for official prices"
-                    }
+                    "Tap to check official prices"
                 }
             }
 
         } catch (_: Exception) {
 
-            "Tap for official prices"
+            "Tap to check official prices"
         }
     }
 
-    /*
-     * MINTO / ZONE 8 SCHOOL & BUS ALERTS
-     */
+    // ---------------------------------------------------------
+    // SCHOOL / BUS ALERTS
+    // ---------------------------------------------------------
+
     LaunchedEffect(Unit) {
 
         schoolAlerts = try {
 
             withContext(Dispatchers.IO) {
 
-                val html =
-                    URL("https://asdw.nbed.ca/news/alerts-dashboard/")
-                        .readText()
+                val html = URL(
+                    "https://asdw.nbed.ca/news/alerts-dashboard/"
+                ).readText()
 
                 val plainText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
-                    .replace("&amp;", "&")
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
-                val lowerText =
-                    plainText.lowercase()
+                val alertMatch = Regex(
+                    "(Bus\\s+#?3\\d{2}\\s+.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
+                    RegexOption.IGNORE_CASE
+                ).find(plainText)
 
-                /*
-                 * Look for Minto / Zone 8 information.
-                 */
-                when {
-
-                    lowerText.contains("minto") &&
-                            lowerText.contains("alert") -> {
-
-                        "⚠️ Minto / Zone 8 alert"
-                    }
-
-                    lowerText.contains("zone 8") &&
-                            lowerText.contains("alert") -> {
-
-                        "⚠️ Minto / Zone 8 alert"
-                    }
-
-                    lowerText.contains("bus") &&
-                            lowerText.contains("delay") -> {
-
-                        "⚠️ Bus delay / alert"
-                    }
-
-                    lowerText.contains("cancellation") -> {
-
-                        "⚠️ School / bus cancellation"
-                    }
-
-                    else -> {
-
-                        "✅ No active Minto / Zone 8 alerts"
-                    }
-                }
+                alertMatch
+                    ?.groupValues
+                    ?.get(1)
+                    ?.trim()
+                    ?: "✅ No active Minto / Zone 8 alerts"
             }
 
         } catch (_: Exception) {
 
-            "Tap for current alerts"
+            "ASD-W alerts unavailable"
         }
     }
 
-    /*
-     * MAIN TILES
-     */
+    // ---------------------------------------------------------
+    // APP TILES
+    // ---------------------------------------------------------
+
     val tiles = listOf(
 
         Tile(
@@ -268,21 +233,21 @@ fun GrandLakeAlertApp() {
             "Police",
             "🚓",
             "Public RCMP information",
-            "https://rcmp.ca/en/nb/news"
+            "https://rcmp.ca"
         ),
 
         Tile(
             "Fire",
             "🔥",
             "Public fire information",
-            "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA"
+            "https://www.arcgis.com"
         ),
 
         Tile(
             "Ambulance",
             "🚑",
             "Public emergency information",
-            "https://www2.gnb.ca/content/gnb/en/departments/health.html"
+            "https://www.gnb.ca"
         ),
 
         Tile(
@@ -295,120 +260,129 @@ fun GrandLakeAlertApp() {
         Tile(
             "Roads",
             "🛣",
-            "NB 511 conditions & incidents",
-            "https://511.gnb.ca/"
+            "NB 511 road conditions & incidents",
+            "https://511.gnb.ca/roadconditions"
         ),
 
         Tile(
             "Fuel",
             "⛽",
             fuelPrices,
-            "https://nbeub.ca/current-petroleum-prices-2"
+            "https://nbeub.ca"
         )
     )
 
-    /*
-     * APP SCREEN
-     */
-    Scaffold(
+    // ---------------------------------------------------------
+    // USER INTERFACE
+    // ---------------------------------------------------------
 
-        topBar = {
+    MaterialTheme {
 
-            TopAppBar(
-                title = {
-                    Text("Grand Lake Alert")
-                }
-            )
-        }
+        Scaffold(
 
-    ) { paddingValues ->
+            topBar = {
 
-        LazyVerticalGrid(
+                TopAppBar(
 
-            columns = GridCells.Fixed(2),
-
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-
-            contentPadding = PaddingValues(8.dp),
-
-            horizontalArrangement =
-                Arrangement.spacedBy(8.dp),
-
-            verticalArrangement =
-                Arrangement.spacedBy(8.dp)
-
-        ) {
-
-            items(tiles) { tile ->
-
-                AlertTile(
-                    tile = tile,
-                    onClick = {
-
-                        tile.url?.let { url ->
-
-                            val intent =
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse(url)
-                                )
-
-                            context.startActivity(intent)
-                        }
+                    title = {
+                        Text("Grand Lake Alert")
                     }
                 )
             }
-        }
-    }
-}
 
-/*
- * INDIVIDUAL ALERT TILE
- */
-@Composable
-fun AlertTile(
-    tile: Tile,
-    onClick: () -> Unit
-) {
+        ) { paddingValues ->
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
+            Column(
 
-        Column(
-            modifier = Modifier
-                .padding(12.dp)
-        ) {
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
+            ) {
 
-            Text(
-                text = tile.icon,
-                style = MaterialTheme.typography.headlineMedium
-            )
+                Text(
+                    text = "AREA",
+                    style = MaterialTheme.typography.labelLarge
+                )
 
-            Text(
-                text = tile.title,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+                Text(
+                    text = area,
+                    style = MaterialTheme.typography.headlineSmall
+                )
 
-            Text(
-                text = tile.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
-            if (tile.url != null) {
+                LazyVerticalGrid(
 
-                TextButton(
-                    onClick = onClick,
-                    modifier = Modifier
-                        .padding(top = 2.dp)
+                    columns = GridCells.Fixed(2),
+
+                    verticalArrangement =
+                        Arrangement.spacedBy(12.dp),
+
+                    horizontalArrangement =
+                        Arrangement.spacedBy(12.dp)
+
                 ) {
 
-                    Text("Open source")
+                    items(tiles) { tile ->
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+
+                                Text(
+                                    text = tile.icon,
+                                    style = MaterialTheme
+                                        .typography
+                                        .headlineMedium
+                                )
+
+                                Text(
+                                    text = tile.title,
+                                    style = MaterialTheme
+                                        .typography
+                                        .titleMedium
+                                )
+
+                                Text(
+                                    text = tile.subtitle,
+                                    style = MaterialTheme
+                                        .typography
+                                        .bodySmall
+                                )
+
+                                if (tile.url != null) {
+
+                                    Spacer(
+                                        modifier = Modifier.height(8.dp)
+                                    )
+
+                                    TextButton(
+
+                                        onClick = {
+
+                                            val intent = Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse(tile.url)
+                                            )
+
+                                            context.startActivity(intent)
+                                        }
+
+                                    ) {
+
+                                        Text("Open source")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
