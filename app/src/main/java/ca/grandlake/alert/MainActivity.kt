@@ -1,4 +1,3 @@
-```kotlin
 package ca.grandlake.alert
 
 import android.content.Intent
