@@ -235,11 +235,11 @@ fun GrandLakeAlertApp() {
         ),
 
         Tile(
-            title = "Roads",
+            title = "Hwy 10",
             icon = "🛣️",
-            subtitle = "NB 511 road conditions",
-            url = "https://511.gnb.ca/roadconditions"
-        ),
+            subtitle = "Current Hwy 10 road conditions",
+            url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10"
+         ),
 
         Tile(
             title = "Police",
