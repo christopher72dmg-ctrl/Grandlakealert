@@ -34,8 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
-
-private data class Tile(
+data class Tile(
     val title: String,
     val icon: String,
     val subtitle: String,
