@@ -92,7 +92,6 @@ fun GrandLakeAlertApp() {
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
-                // Filters data specifically for Zone 8 closures or local Minto/Chipman/300-series buses
                 val alertMatch = Regex(
                     "(.*?(?:Zone 8|Minto|Chipman|Bus\\s+#?3\\d{2}).*?)(?=Alerts|Zones|$)",
                     RegexOption.IGNORE_CASE
@@ -105,7 +104,6 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // Dynamic tile grid connection
     val tiles = listOf(
         Tile("Weather", "🌦", weather, null),
         Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca"),
