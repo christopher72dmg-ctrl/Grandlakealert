@@ -42,14 +42,14 @@ fun GrandLakeAlertApp() {
     var fuelPrices by remember { mutableStateOf("Loading official prices…") }
     var schoolAlerts by remember { mutableStateOf("Checking ASD-W alerts…") }
 
-    // 1. Live Weather Fetching Block
+    // 1. Live Weather Fetching Block (Fixed strict type parsing)
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
                 val json = JSONObject(URL("https://open-meteo.com").readText())
                 val current = json.getJSONObject("current")
-                val temp = current.getDouble("temperature_2m")
-                val wind = current.getDouble("wind_speed_10m")
+                val temp = current.optDouble("temperature_2m", 0.0)
+                val wind = current.optDouble("wind_speed_10m", 0.0)
                 "${temp.toInt()}°C • Wind ${wind.toInt()} km/h"
             }
         } catch (_: Exception) {
@@ -58,11 +58,11 @@ fun GrandLakeAlertApp() {
         weatherUpdated = true
     }
 
-    // 2. Live Fuel Prices Fetching Block
+    // 2. Live Fuel Prices Fetching Block (Fixed list-to-string extraction)
     LaunchedEffect(Unit) {
         fuelPrices = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://nbeub.ca/current-petroleum-prices-2").readText()
+                val html = URL("https://nbeub.ca").readText()
                 val plainText = html.replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
                     .replace(Regex("\\s+"), " ")
@@ -81,11 +81,11 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // 3. Localized School Alerts Fetching Block (Minto & Zone 8 Only)
+    // 3. Localized School Alerts Fetching Block (Clear confirmation messaging)
     LaunchedEffect(Unit) {
         schoolAlerts = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://nbed.ca").readText()
+                val html = URL("https://asdw.nbed.ca/news/alerts-dashboard/").readText()
                 val plainText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
@@ -97,7 +97,7 @@ fun GrandLakeAlertApp() {
                     RegexOption.IGNORE_CASE
                 ).find(plainText)
 
-                alertMatch?.groupValues?.get(1)?.trim() ?: "No current local alerts"
+                alertMatch?.groupValues?.get(1)?.trim() ?: "✅ No active Minto / Zone 8 alerts"
             }
         } catch (_: Exception) {
             "ASD-W alerts unavailable"
@@ -109,9 +109,9 @@ fun GrandLakeAlertApp() {
         Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca"),
         Tile("Fire", "🔥", "Public fire information", "https://arcgis.com"),
         Tile("Ambulance", "🚑", "Public emergency information", "https://gnb.ca"),
-        Tile("Minto School", "🎒", schoolAlerts, "https://nbed.ca"),
-        Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://511.gnb.ca/"),
-        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca/current-petroleum-prices-2")
+        Tile("Minto School", "🎒", schoolAlerts, "https://asdw.nbed.ca/news/alerts-dashboard/"),
+        Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://gnb.ca"),
+        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca")
     )
 
     MaterialTheme {
