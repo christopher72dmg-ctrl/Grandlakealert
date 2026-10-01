@@ -7,14 +7,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.runtime.*
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         setContent { GrandLakeAlertApp() }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GrandLakeAlertApp() {
@@ -40,10 +41,12 @@ fun GrandLakeAlertApp() {
     var weatherUpdated by remember { mutableStateOf(false) }
     var fuelPrices by remember { mutableStateOf("Loading official prices…") }
     var schoolAlerts by remember { mutableStateOf("Checking ASD-W alerts…") }
+
+    // Weather Fetching Block
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
-                val json = JSONObject(URL("https://api.open-meteo.com/v1/forecast?latitude=46.00&longitude=-66.05&current=temperature_2m,weather_code,wind_speed_10m&timezone=America%2FHalifax").readText())
+                val json = JSONObject(URL("https://open-meteo.com").readText())
                 val current = json.getJSONObject("current")
                 val temp = current.getDouble("temperature_2m")
                 val wind = current.getDouble("wind_speed_10m")
@@ -55,11 +58,11 @@ fun GrandLakeAlertApp() {
         weatherUpdated = true
     }
 
+    // Fuel Prices Fetching Block
     LaunchedEffect(Unit) {
-
         fuelPrices = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://nbeub.ca/current-petroleum-prices-2").readText()
+                val html = URL("https://nbeub.ca").readText()
                 val plainText = html.replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
                     .replace(Regex("\\s+"), " ")
@@ -73,11 +76,14 @@ fun GrandLakeAlertApp() {
             }
         } catch (_: Exception) {
             "Tap for current official prices"
-       LaunchedEffect(Unit) {
+        }
+    }
+
+    // School Alerts Fetching Block
+    LaunchedEffect(Unit) {
         schoolAlerts = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://asdw.nbed.ca/news/alerts-dashboard/").readText()
-
+                val html = URL("https://nbed.ca").readText()
                 val plainText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
@@ -89,22 +95,21 @@ fun GrandLakeAlertApp() {
                     RegexOption.IGNORE_CASE
                 ).find(plainText)
 
-                alertMatch?.groupValues?.get(1)?.trim()
-                    ?: "No current bus alerts"
+                alertMatch?.groupValues?.get(1)?.trim() ?: "No current bus alerts"
             }
         } catch (_: Exception) {
             "ASD-W alerts unavailable"
         }
-    }     }
     }
+
     val tiles = listOf(
         Tile("Weather", "🌦", weather, null),
-        Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca/en/nb/news"),
-        Tile("Fire", "🔥", "Public fire information", "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA"),
-        Tile("Ambulance", "🚑", "Public emergency information", "https://www2.gnb.ca/content/gnb/en/departments/health.html"),
-        Tile("Minto School", "🎒", "School & bus alerts", "https://asdw.nbed.ca/news/alerts-dashboard/"),
-        Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://511.gnb.ca/"),
-        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca/current-petroleum-prices-2")
+        Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca"),
+        Tile("Fire", "🔥", "Public fire information", "https://arcgis.com"),
+        Tile("Ambulance", "🚑", "Public emergency information", "https://gnb.ca"),
+        Tile("Minto School", "🎒", schoolAlerts, "https://nbed.ca"),
+        Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://gnb.ca"),
+        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca")
     )
 
     MaterialTheme {
