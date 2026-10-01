@@ -62,7 +62,7 @@ fun GrandLakeAlertApp() {
     LaunchedEffect(Unit) {
         fuelPrices = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://nbeub.ca").readText()
+                val html = URL("https://nbeub.ca/current-petroleum-prices-2").readText()
                 val plainText = html.replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
                     .replace(Regex("\\s+"), " ")
@@ -110,8 +110,8 @@ fun GrandLakeAlertApp() {
         Tile("Fire", "🔥", "Public fire information", "https://arcgis.com"),
         Tile("Ambulance", "🚑", "Public emergency information", "https://gnb.ca"),
         Tile("Minto School", "🎒", schoolAlerts, "https://nbed.ca"),
-        Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://gnb.ca"),
-        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca")
+        Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://511.gnb.ca/"),
+        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca/current-petroleum-prices-2")
     )
 
     MaterialTheme {
