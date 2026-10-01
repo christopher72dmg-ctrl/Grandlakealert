@@ -42,7 +42,7 @@ fun GrandLakeAlertApp() {
     var fuelPrices by remember { mutableStateOf("Loading official prices…") }
     var schoolAlerts by remember { mutableStateOf("Checking ASD-W alerts…") }
 
-    // Weather Fetching Block
+    // Live Weather Fetching Block
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
@@ -58,28 +58,32 @@ fun GrandLakeAlertApp() {
         weatherUpdated = true
     }
 
-    // Fuel Prices Fetching Block
+    // Live Fuel Prices Fetching Block
     LaunchedEffect(Unit) {
         fuelPrices = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://nbeub.ca").readText()
+                // Fetching the official NBEUB live price feed
+                val html = URL("https://nbeub.ca/current-petroleum-prices").readText()
                 val plainText = html.replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
                     .replace(Regex("\\s+"), " ")
+                
+                // Matches the exact phrase layout of the regulatory table
                 val regularMatch = Regex("Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)", RegexOption.IGNORE_CASE).find(plainText)
                 val dieselMatch = Regex("Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)", RegexOption.IGNORE_CASE).find(plainText)
+                
                 if (regularMatch != null && dieselMatch != null) {
                     "Regular ${regularMatch.groupValues[1]}¢/L • Diesel ${dieselMatch.groupValues[1]}¢/L"
                 } else {
-                    "Tap for current official prices"
+                    "Tap to check official prices"
                 }
             }
         } catch (_: Exception) {
-            "Tap for current official prices"
+            "Tap to check official prices"
         }
     }
 
-    // School Alerts Fetching Block
+    // Live School Alerts Fetching Block
     LaunchedEffect(Unit) {
         schoolAlerts = try {
             withContext(Dispatchers.IO) {
@@ -102,6 +106,7 @@ fun GrandLakeAlertApp() {
         }
     }
 
+    // Mapping states directly to display layouts dynamically
     val tiles = listOf(
         Tile("Weather", "🌦", weather, null),
         Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca"),
@@ -109,7 +114,7 @@ fun GrandLakeAlertApp() {
         Tile("Ambulance", "🚑", "Public emergency information", "https://gnb.ca"),
         Tile("Minto School", "🎒", schoolAlerts, "https://nbed.ca"),
         Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://gnb.ca"),
-        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca")
+        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca/current-petroleum-prices")
     )
 
     MaterialTheme {
