@@ -42,7 +42,7 @@ fun GrandLakeAlertApp() {
     var fuelPrices by remember { mutableStateOf("Loading official prices…") }
     var schoolAlerts by remember { mutableStateOf("Checking ASD-W alerts…") }
 
-    // Live Weather Fetching Block
+    // 1. Live Weather Fetching Block
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
@@ -58,17 +58,15 @@ fun GrandLakeAlertApp() {
         weatherUpdated = true
     }
 
-    // Live Fuel Prices Fetching Block
+    // 2. Live Fuel Prices Fetching Block
     LaunchedEffect(Unit) {
         fuelPrices = try {
             withContext(Dispatchers.IO) {
-                // Fetching the official NBEUB live price feed
-                val html = URL("https://nbeub.ca/current-petroleum-prices").readText()
+                val html = URL("https://nbeub.ca").readText()
                 val plainText = html.replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
                     .replace(Regex("\\s+"), " ")
                 
-                // Matches the exact phrase layout of the regulatory table
                 val regularMatch = Regex("Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)", RegexOption.IGNORE_CASE).find(plainText)
                 val dieselMatch = Regex("Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)", RegexOption.IGNORE_CASE).find(plainText)
                 
@@ -83,7 +81,7 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // Live School Alerts Fetching Block
+    // 3. Localized School Alerts Fetching Block (Minto & Zone 8 Only)
     LaunchedEffect(Unit) {
         schoolAlerts = try {
             withContext(Dispatchers.IO) {
@@ -94,19 +92,20 @@ fun GrandLakeAlertApp() {
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
+                // Filters data specifically for Zone 8 closures or local Minto/Chipman/300-series buses
                 val alertMatch = Regex(
-                    "(Bus\\s+#?\\d+.*?)(?=Alerts|Zones|$)",
+                    "(.*?(?:Zone 8|Minto|Chipman|Bus\\s+#?3\\d{2}).*?)(?=Alerts|Zones|$)",
                     RegexOption.IGNORE_CASE
                 ).find(plainText)
 
-                alertMatch?.groupValues?.get(1)?.trim() ?: "No current bus alerts"
+                alertMatch?.groupValues?.get(1)?.trim() ?: "No current local alerts"
             }
         } catch (_: Exception) {
             "ASD-W alerts unavailable"
         }
     }
 
-    // Mapping states directly to display layouts dynamically
+    // Dynamic tile grid connection
     val tiles = listOf(
         Tile("Weather", "🌦", weather, null),
         Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca"),
@@ -114,7 +113,7 @@ fun GrandLakeAlertApp() {
         Tile("Ambulance", "🚑", "Public emergency information", "https://gnb.ca"),
         Tile("Minto School", "🎒", schoolAlerts, "https://nbed.ca"),
         Tile("Roads", "🛣", "NB 511 conditions & incidents", "https://gnb.ca"),
-        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca/current-petroleum-prices")
+        Tile("Fuel", "⛽", fuelPrices, "https://nbeub.ca")
     )
 
     MaterialTheme {
