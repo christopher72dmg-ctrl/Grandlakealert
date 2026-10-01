@@ -6,7 +6,6 @@ import android.os.Bundle
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -25,21 +23,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
 import org.json.JSONObject
 import java.net.URL
 
@@ -67,24 +61,20 @@ fun GrandLakeAlertApp() {
 
     val context = LocalContext.current
 
-    var area by remember {
-        mutableStateOf("Grand Lake, NB")
-    }
-
     var weather by remember {
         mutableStateOf("Loading current weather…")
     }
 
     var fuelPrices by remember {
-        mutableStateOf("Loading official prices…")
+        mutableStateOf("Loading current prices…")
     }
 
     var schoolAlerts by remember {
-        mutableStateOf("Checking ASD-W alerts…")
+        mutableStateOf("Checking school alerts…")
     }
 
     // ---------------------------------------------------------
-    // LIVE WEATHER
+    // WEATHER
     // ---------------------------------------------------------
 
     LaunchedEffect(Unit) {
@@ -104,17 +94,13 @@ fun GrandLakeAlertApp() {
 
                 val current = json.getJSONObject("current")
 
-                val temp = current.optDouble(
-                    "temperature_2m",
-                    0.0
-                )
+                val temperature =
+                    current.optDouble("temperature_2m", 0.0)
 
-                val wind = current.optDouble(
-                    "wind_speed_10m",
-                    0.0
-                )
+                val wind =
+                    current.optDouble("wind_speed_10m", 0.0)
 
-                "${temp.toInt()}°C • Wind ${wind.toInt()} km/h"
+                "${temperature.toInt()}°C • Wind ${wind.toInt()} km/h"
             }
 
         } catch (_: Exception) {
@@ -125,6 +111,7 @@ fun GrandLakeAlertApp() {
 
     // ---------------------------------------------------------
     // FUEL PRICES
+    // Official New Brunswick Energy & Utilities Board
     // ---------------------------------------------------------
 
     LaunchedEffect(Unit) {
@@ -134,24 +121,28 @@ fun GrandLakeAlertApp() {
             withContext(Dispatchers.IO) {
 
                 val html = URL(
-                    "https://nbeub.ca"
+                    "https://nbeub.ca/current-petroleum-prices-2"
                 ).readText()
 
-                val plainText = html
+                // Remove HTML tags so we can read the page text.
+                val pageText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
+                    .replace("&amp;", "&")
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
+                // Find Regular Gasoline self-serve price.
                 val regularMatch = Regex(
-                    "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)",
+                    "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])",
                     RegexOption.IGNORE_CASE
-                ).find(plainText)
+                ).find(pageText)
 
+                // Find Ultra-low Sulphur Diesel self-serve price.
                 val dieselMatch = Regex(
-                    "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.?[0-9]*)",
+                    "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])",
                     RegexOption.IGNORE_CASE
-                ).find(plainText)
+                ).find(pageText)
 
                 if (
                     regularMatch != null &&
@@ -164,22 +155,22 @@ fun GrandLakeAlertApp() {
                     val diesel =
                         dieselMatch.groupValues[1]
 
-                    "Regular $regular¢/L • Diesel $diesel¢/L"
+                    "Regular: $regular¢/L\nDiesel: $diesel¢/L"
 
                 } else {
 
-                    "Tap to check official prices"
+                    "Fuel prices unavailable"
                 }
             }
 
         } catch (_: Exception) {
 
-            "Tap to check official prices"
+            "Fuel prices unavailable"
         }
     }
 
     // ---------------------------------------------------------
-    // SCHOOL / BUS ALERTS
+    // SCHOOL ALERTS
     // ---------------------------------------------------------
 
     LaunchedEffect(Unit) {
@@ -192,7 +183,7 @@ fun GrandLakeAlertApp() {
                     "https://asdw.nbed.ca/news/alerts-dashboard/"
                 ).readText()
 
-                val plainText = html
+                val pageText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
                     .replace(Regex("\\s+"), " ")
@@ -201,7 +192,7 @@ fun GrandLakeAlertApp() {
                 val alertMatch = Regex(
                     "(Bus\\s+#?3\\d{2}\\s+.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
                     RegexOption.IGNORE_CASE
-                ).find(plainText)
+                ).find(pageText)
 
                 alertMatch
                     ?.groupValues
@@ -212,63 +203,63 @@ fun GrandLakeAlertApp() {
 
         } catch (_: Exception) {
 
-            "ASD-W alerts unavailable"
+            "School alerts unavailable"
         }
     }
 
     // ---------------------------------------------------------
-    // APP TILES
+    // TILES
     // ---------------------------------------------------------
 
     val tiles = listOf(
 
         Tile(
-            "Weather",
-            "🌦",
-            weather,
-            null
+            title = "Weather",
+            icon = "🌦️",
+            subtitle = weather,
+            url = null
         ),
 
         Tile(
-            "Police",
-            "🚓",
-            "Public RCMP information",
-            "https://rcmp.ca"
+            title = "Minto School",
+            icon = "🏫",
+            subtitle = schoolAlerts,
+            url = "https://asdw.nbed.ca/news/alerts-dashboard/"
         ),
 
         Tile(
-            "Fire",
-            "🔥",
-            "Public fire information",
-            "https://www.arcgis.com"
+            title = "Fuel",
+            icon = "⛽",
+            subtitle = fuelPrices,
+            url = "https://nbeub.ca/current-petroleum-prices-2"
         ),
 
         Tile(
-            "Ambulance",
-            "🚑",
-            "Public emergency information",
-            "https://www.gnb.ca"
+            title = "Roads",
+            icon = "🛣️",
+            subtitle = "NB 511 road conditions",
+            url = "https://511.gnb.ca/roadconditions"
         ),
 
         Tile(
-            "Minto School",
-            "🎒",
-            schoolAlerts,
-            "https://asdw.nbed.ca/news/alerts-dashboard/"
+            title = "Police",
+            icon = "🚓",
+            subtitle = "Public RCMP information",
+            url = "https://rcmp.ca"
         ),
 
         Tile(
-            "Roads",
-            "🛣",
-            "NB 511 road conditions & incidents",
-            "https://511.gnb.ca/roadconditions"
+            title = "Fire",
+            icon = "🔥",
+            subtitle = "Public fire information",
+            url = "https://www.gnb.ca"
         ),
 
         Tile(
-            "Fuel",
-            "⛽",
-            fuelPrices,
-            "https://nbeub.ca"
+            title = "Ambulance",
+            icon = "🚑",
+            subtitle = "Public emergency information",
+            url = "https://www.gnb.ca"
         )
     )
 
@@ -283,7 +274,6 @@ fun GrandLakeAlertApp() {
             topBar = {
 
                 TopAppBar(
-
                     title = {
                         Text("Grand Lake Alert")
                     }
@@ -306,7 +296,7 @@ fun GrandLakeAlertApp() {
                 )
 
                 Text(
-                    text = area,
+                    text = "Grand Lake, NB",
                     style = MaterialTheme.typography.headlineSmall
                 )
 
@@ -343,11 +333,19 @@ fun GrandLakeAlertApp() {
                                         .headlineMedium
                                 )
 
+                                Spacer(
+                                    modifier = Modifier.height(4.dp)
+                                )
+
                                 Text(
                                     text = tile.title,
                                     style = MaterialTheme
                                         .typography
                                         .titleMedium
+                                )
+
+                                Spacer(
+                                    modifier = Modifier.height(4.dp)
                                 )
 
                                 Text(
