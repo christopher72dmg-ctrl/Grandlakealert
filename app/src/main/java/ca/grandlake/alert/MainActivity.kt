@@ -73,9 +73,30 @@ fun GrandLakeAlertApp() {
             }
         } catch (_: Exception) {
             "Tap for current official prices"
-        }
-    }
+       LaunchedEffect(Unit) {
+        schoolAlerts = try {
+            withContext(Dispatchers.IO) {
+                val html = URL("https://asdw.nbed.ca/news/alerts-dashboard/").readText()
 
+                val plainText = html
+                    .replace(Regex("<[^>]*>"), " ")
+                    .replace("&nbsp;", " ")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+
+                val alertMatch = Regex(
+                    "(Bus\\s+#?\\d+.*?)(?=Alerts|Zones|$)",
+                    RegexOption.IGNORE_CASE
+                ).find(plainText)
+
+                alertMatch?.groupValues?.get(1)?.trim()
+                    ?: "No current bus alerts"
+            }
+        } catch (_: Exception) {
+            "ASD-W alerts unavailable"
+        }
+    }     }
+    }
     val tiles = listOf(
         Tile("Weather", "🌦", weather, null),
         Tile("Police", "🚓", "Public RCMP information", "https://rcmp.ca/en/nb/news"),
