@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
 import java.net.URL
 
 private data class Tile(
@@ -71,6 +73,14 @@ fun GrandLakeAlertApp() {
 
     var schoolAlerts by remember {
         mutableStateOf("Checking school alerts…")
+    }
+
+    var policeNews by remember {
+        mutableStateOf("Checking latest RCMP news…")
+    }
+
+    var policeUrl by remember {
+        mutableStateOf("https://rcmp.ca/en/nb/news")
     }
 
     // ---------------------------------------------------------
@@ -124,7 +134,6 @@ fun GrandLakeAlertApp() {
                     "https://nbeub.ca/current-petroleum-prices-2"
                 ).readText()
 
-                // Remove HTML tags so we can read the page text.
                 val pageText = html
                     .replace(Regex("<[^>]*>"), " ")
                     .replace("&nbsp;", " ")
@@ -132,13 +141,11 @@ fun GrandLakeAlertApp() {
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
-                // Find Regular Gasoline self-serve price.
                 val regularMatch = Regex(
                     "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])",
                     RegexOption.IGNORE_CASE
                 ).find(pageText)
 
-                // Find Ultra-low Sulphur Diesel self-serve price.
                 val dieselMatch = Regex(
                     "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])",
                     RegexOption.IGNORE_CASE
@@ -208,6 +215,137 @@ fun GrandLakeAlertApp() {
     }
 
     // ---------------------------------------------------------
+    // RCMP POLICE NEWS
+    // Official New Brunswick RCMP news feed
+    // ---------------------------------------------------------
+
+    LaunchedEffect(Unit) {
+
+        try {
+
+            val result = withContext(Dispatchers.IO) {
+
+                val feedUrl =
+                    "https://rcmp.ca/en/feed-flux/news-nouvelles/division/j"
+
+                val parserFactory =
+                    XmlPullParserFactory.newInstance()
+
+                val parser =
+                    parserFactory.newPullParser()
+
+                parser.setInput(
+                    URL(feedUrl).openStream(),
+                    "UTF-8"
+                )
+
+                var eventType = parser.eventType
+
+                var insideEntry = false
+                var insideTitle = false
+                var latestTitle = ""
+                var latestUrl = ""
+
+                while (
+                    eventType != XmlPullParser.END_DOCUMENT
+                ) {
+
+                    when (eventType) {
+
+                        XmlPullParser.START_TAG -> {
+
+                            when (parser.name.lowercase()) {
+
+                                "entry" -> {
+                                    insideEntry = true
+                                }
+
+                                "title" -> {
+                                    if (insideEntry) {
+                                        insideTitle = true
+                                    }
+                                }
+
+                                "link" -> {
+                                    if (insideEntry) {
+
+                                        val href =
+                                            parser.getAttributeValue(
+                                                null,
+                                                "href"
+                                            )
+
+                                        if (
+                                            !href.isNullOrBlank() &&
+                                            latestUrl.isBlank()
+                                        ) {
+                                            latestUrl = href
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        XmlPullParser.TEXT -> {
+
+                            if (
+                                insideEntry &&
+                                insideTitle
+                            ) {
+                                latestTitle +=
+                                    parser.text.trim()
+                            }
+                        }
+
+                        XmlPullParser.END_TAG -> {
+
+                            when (parser.name.lowercase()) {
+
+                                "title" -> {
+                                    insideTitle = false
+                                }
+
+                                "entry" -> {
+                                    if (insideEntry) {
+                                        insideEntry = false
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    eventType = parser.next()
+                }
+
+                Pair(
+                    latestTitle.trim(),
+                    latestUrl.trim()
+                )
+            }
+
+            if (result.first.isNotBlank()) {
+
+                policeNews =
+                    "Latest: ${result.first}"
+
+                if (result.second.isNotBlank()) {
+                    policeUrl = result.second
+                }
+            } else {
+
+                policeNews =
+                    "Latest RCMP news unavailable"
+            }
+
+        } catch (_: Exception) {
+
+            policeNews =
+                "RCMP news temporarily unavailable"
+        }
+    }
+
+    // ---------------------------------------------------------
     // TILES
     // ---------------------------------------------------------
 
@@ -239,13 +377,13 @@ fun GrandLakeAlertApp() {
             icon = "🛣️",
             subtitle = "Current Hwy 10 road conditions",
             url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10"
-         ),
+        ),
 
         Tile(
             title = "Police",
             icon = "🚓",
-            subtitle = "Public RCMP information",
-            url = "https://rcmp.ca"
+            subtitle = policeNews,
+            url = policeUrl
         ),
 
         Tile(
