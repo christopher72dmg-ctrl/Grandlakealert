@@ -60,7 +60,7 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.net.URL
 
-private data class Tile(
+ data class Tile(
     val title: String,
     val icon: String,
     val subtitle: String,
