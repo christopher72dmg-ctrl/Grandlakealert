@@ -60,615 +60,621 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.net.URL
 
- data class Tile(
-    val title: String,
-    val icon: String,
-    val subtitle: String,
-    val url: String?,
-    val accent: Color
+data class Tile(
+val title: String,
+val icon: String,
+val subtitle: String,
+val url: String?,
+val accent: Color
 )
 
 class MainActivity : ComponentActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+```
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
 
-        setContent {
-            GrandLakeAlertApp()
-        }
+    setContent {
+        GrandLakeAlertApp()
     }
+}
+```
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GrandLakeAlertApp() {
 
-    val context = LocalContext.current
+```
+val context = LocalContext.current
 
-    var weather by remember {
-        mutableStateOf("Loading current weather…")
-    }
+var weather by remember {
+    mutableStateOf("Loading current weather…")
+}
 
-    var fuelPrices by remember {
-        mutableStateOf("Loading current prices…")
-    }
+var fuelPrices by remember {
+    mutableStateOf("Loading current prices…")
+}
 
-    var schoolAlerts by remember {
-        mutableStateOf("Checking school alerts…")
-    }
+var schoolAlerts by remember {
+    mutableStateOf("Checking school alerts…")
+}
 
-    var policeNews by remember {
-        mutableStateOf("Checking latest RCMP news…")
-    }
+var policeNews by remember {
+    mutableStateOf("Checking latest RCMP news…")
+}
 
-    var policeUrl by remember {
-        mutableStateOf("https://rcmp.ca/en/nb/news")
-    }
+var policeUrl by remember {
+    mutableStateOf("https://rcmp.ca/en/nb/news")
+}
 
-    var fireInfo by remember {
-        mutableStateOf("Checking NB wildfire information…")
-    }
+var fireInfo by remember {
+    mutableStateOf("Checking NB wildfire information…")
+}
 
-    var showTiles by remember {
-        mutableStateOf(false)
-    }
+var showTiles by remember {
+    mutableStateOf(false)
+}
 
-    // ---------------------------------------------------------
-    // WEATHER
-    // ---------------------------------------------------------
+// ---------------------------------------------------------
+// WEATHER
+// ---------------------------------------------------------
 
-    LaunchedEffect(Unit) {
+LaunchedEffect(Unit) {
 
-        weather = try {
+    weather = try {
 
-            withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
 
-                val json = JSONObject(
-                    URL(
-                        "https://api.open-meteo.com/v1/forecast" +
-                                "?latitude=46.0" +
-                                "&longitude=-66.0" +
-                                "&current=temperature_2m,wind_speed_10m"
-                    ).readText()
-                )
-
-                val current = json.getJSONObject("current")
-
-                val temperature =
-                    current.optDouble("temperature_2m", 0.0)
-
-                val wind =
-                    current.optDouble("wind_speed_10m", 0.0)
-
-                "${temperature.toInt()}°C • Wind ${wind.toInt()} km/h"
-            }
-
-        } catch (_: Exception) {
-
-            "Weather temporarily unavailable"
-        }
-    }
-
-    // ---------------------------------------------------------
-    // FUEL PRICES
-    // ---------------------------------------------------------
-
-    LaunchedEffect(Unit) {
-
-        fuelPrices = try {
-
-            withContext(Dispatchers.IO) {
-
-                val html = URL(
-                    "https://nbeub.ca/current-petroleum-prices-2"
+            val json = JSONObject(
+                URL(
+                    "https://api.open-meteo.com/v1/forecast" +
+                            "?latitude=46.0" +
+                            "&longitude=-66.0" +
+                            "&current=temperature_2m,wind_speed_10m"
                 ).readText()
+            )
 
-                val pageText = html
-                    .replace(Regex("<[^>]*>"), " ")
-                    .replace("&nbsp;", " ")
-                    .replace("&amp;", "&")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
+            val current = json.getJSONObject("current")
 
-                val regularMatch = Regex(
-                    "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])",
-                    RegexOption.IGNORE_CASE
-                ).find(pageText)
+            val temperature =
+                current.optDouble("temperature_2m", 0.0)
 
-                val dieselMatch = Regex(
-                    "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])",
-                    RegexOption.IGNORE_CASE
-                ).find(pageText)
+            val wind =
+                current.optDouble("wind_speed_10m", 0.0)
 
-                if (
-                    regularMatch != null &&
-                    dieselMatch != null
-                ) {
-
-                    val regular =
-                        regularMatch.groupValues[1]
-
-                    val diesel =
-                        dieselMatch.groupValues[1]
-
-                    "Regular: $regular¢/L\nDiesel: $diesel¢/L"
-
-                } else {
-
-                    "Fuel prices unavailable"
-                }
-            }
-
-        } catch (_: Exception) {
-
-            "Fuel prices unavailable"
+            "${temperature.toInt()}°C • Wind ${wind.toInt()} km/h"
         }
+
+    } catch (_: Exception) {
+
+        "Weather temporarily unavailable"
     }
+}
 
-    // ---------------------------------------------------------
-    // SCHOOL ALERTS
-    // ---------------------------------------------------------
+// ---------------------------------------------------------
+// FUEL PRICES
+// ---------------------------------------------------------
 
-    LaunchedEffect(Unit) {
+LaunchedEffect(Unit) {
 
-        schoolAlerts = try {
+    fuelPrices = try {
 
-            withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
 
-                val html = URL(
-                    "https://asdw.nbed.ca/news/alerts-dashboard/"
-                ).readText()
+            val html = URL(
+                "https://nbeub.ca/current-petroleum-prices-2"
+            ).readText()
 
-                val pageText = html
-                    .replace(Regex("<[^>]*>"), " ")
-                    .replace("&nbsp;", " ")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
+            val pageText = html
+                .replace(Regex("<[^>]*>"), " ")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace(Regex("\\s+"), " ")
+                .trim()
 
-                val alertMatch = Regex(
-                    "(Bus\\s+#?3\\d{2}\\s+.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
-                    RegexOption.IGNORE_CASE
-                ).find(pageText)
+            val regularMatch = Regex(
+                "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])",
+                RegexOption.IGNORE_CASE
+            ).find(pageText)
 
-                alertMatch
-                    ?.groupValues
-                    ?.get(1)
-                    ?.trim()
-                    ?: "✅ No active Minto / Zone 8 alerts"
-            }
+            val dieselMatch = Regex(
+                "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])",
+                RegexOption.IGNORE_CASE
+            ).find(pageText)
 
-        } catch (_: Exception) {
+            if (
+                regularMatch != null &&
+                dieselMatch != null
+            ) {
 
-            "School alerts unavailable"
-        }
-    }
+                val regular =
+                    regularMatch.groupValues[1]
 
-    // ---------------------------------------------------------
-    // RCMP POLICE NEWS
-    // ---------------------------------------------------------
+                val diesel =
+                    dieselMatch.groupValues[1]
 
-    LaunchedEffect(Unit) {
-
-        try {
-
-            val result = withContext(Dispatchers.IO) {
-
-                val feedUrl =
-                    "https://rcmp.ca/en/feed-flux/news-nouvelles/division/j"
-
-                val parserFactory =
-                    XmlPullParserFactory.newInstance()
-
-                val parser =
-                    parserFactory.newPullParser()
-
-                parser.setInput(
-                    URL(feedUrl).openStream(),
-                    "UTF-8"
-                )
-
-                var eventType = parser.eventType
-
-                var insideEntry = false
-                var insideTitle = false
-                var latestTitle = ""
-                var latestUrl = ""
-
-                while (
-                    eventType != XmlPullParser.END_DOCUMENT
-                ) {
-
-                    when (eventType) {
-
-                        XmlPullParser.START_TAG -> {
-
-                            when (parser.name.lowercase()) {
-
-                                "entry" -> {
-                                    insideEntry = true
-                                }
-
-                                "title" -> {
-                                    if (insideEntry) {
-                                        insideTitle = true
-                                    }
-                                }
-
-                                "link" -> {
-                                    if (insideEntry) {
-
-                                        val href =
-                                            parser.getAttributeValue(
-                                                null,
-                                                "href"
-                                            )
-
-                                        if (
-                                            !href.isNullOrBlank() &&
-                                            latestUrl.isBlank()
-                                        ) {
-                                            latestUrl = href
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        XmlPullParser.TEXT -> {
-
-                            if (
-                                insideEntry &&
-                                insideTitle
-                            ) {
-                                latestTitle +=
-                                    parser.text.trim()
-                            }
-                        }
-
-                        XmlPullParser.END_TAG -> {
-
-                            when (parser.name.lowercase()) {
-
-                                "title" -> {
-                                    insideTitle = false
-                                }
-
-                                "entry" -> {
-                                    if (insideEntry) {
-                                        insideEntry = false
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    eventType = parser.next()
-                }
-
-                Pair(
-                    latestTitle.trim(),
-                    latestUrl.trim()
-                )
-            }
-
-            if (result.first.isNotBlank()) {
-
-                policeNews =
-                    "Latest: ${result.first}"
-
-                if (result.second.isNotBlank()) {
-                    policeUrl = result.second
-                }
+                "Regular: $regular¢/L\nDiesel: $diesel¢/L"
 
             } else {
 
-                policeNews =
-                    "Latest RCMP news unavailable"
+                "Fuel prices unavailable"
             }
-
-        } catch (_: Exception) {
-
-            policeNews =
-                "RCMP news temporarily unavailable"
         }
+
+    } catch (_: Exception) {
+
+        "Fuel prices unavailable"
     }
+}
 
-    // ---------------------------------------------------------
-    // NEW BRUNSWICK WILDFIRE INFORMATION
-    // ---------------------------------------------------------
+// ---------------------------------------------------------
+// SCHOOL ALERTS
+// ---------------------------------------------------------
 
-    LaunchedEffect(Unit) {
+LaunchedEffect(Unit) {
 
-        fireInfo = try {
+    schoolAlerts = try {
 
-            withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
 
-                val fireUrl =
-                    "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
-                            "New_Brunswick_Fires/" +
-                            "New_Brunswick_Fire_Locations/" +
-                            "FeatureServer/0/query" +
-                            "?where=1%3D1" +
-                            "&outFields=FIELD_FIRE_NAME" +
-                            "&returnGeometry=false" +
-                            "&f=json"
+            val html = URL(
+                "https://asdw.nbed.ca/news/alerts-dashboard/"
+            ).readText()
 
-                val json = JSONObject(
-                    URL(fireUrl).readText()
-                )
+            val pageText = html
+                .replace(Regex("<[^>]*>"), " ")
+                .replace("&nbsp;", " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
 
-                val features =
-                    json.optJSONArray("features")
+            val alertMatch = Regex(
+                "(Bus\\s+#?3\\d{2}\\s+.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
+                RegexOption.IGNORE_CASE
+            ).find(pageText)
 
-                val count =
-                    features?.length() ?: 0
-
-                if (count == 0) {
-
-                    "✅ No wildfire locations reported"
-
-                } else {
-
-                    "🔥 $count NB wildfire location" +
-                            if (count == 1) "" else "s"
-                }
-            }
-
-        } catch (_: Exception) {
-
-            "Wildfire information unavailable"
+            alertMatch
+                ?.groupValues
+                ?.get(1)
+                ?.trim()
+                ?: "✅ No active Minto / Zone 8 alerts"
         }
+
+    } catch (_: Exception) {
+
+        "School alerts unavailable"
     }
+}
 
-    // ---------------------------------------------------------
-    // START TILE ANIMATION
-    // ---------------------------------------------------------
+// ---------------------------------------------------------
+// RCMP POLICE NEWS
+// ---------------------------------------------------------
 
-    LaunchedEffect(Unit) {
+LaunchedEffect(Unit) {
 
-        kotlinx.coroutines.delay(250)
+    try {
 
-        showTiles = true
-    }
+        val result = withContext(Dispatchers.IO) {
 
-    // ---------------------------------------------------------
-    // TILES
-    // ---------------------------------------------------------
+            val feedUrl =
+                "https://rcmp.ca/en/feed-flux/news-nouvelles/division/j"
 
-    val tiles = listOf(
+            val parserFactory =
+                XmlPullParserFactory.newInstance()
 
-        Tile(
-            title = "Weather",
-            icon = "🌦️",
-            subtitle = weather,
-            url = null,
-            accent = Color(0xFF42A5F5)
-        ),
+            val parser =
+                parserFactory.newPullParser()
 
-        Tile(
-            title = "Minto School",
-            icon = "🏫",
-            subtitle = schoolAlerts,
-            url = "https://asdw.nbed.ca/news/alerts-dashboard/",
-            accent = Color(0xFF66BB6A)
-        ),
+            parser.setInput(
+                URL(feedUrl).openStream(),
+                "UTF-8"
+            )
 
-        Tile(
-            title = "Fuel",
-            icon = "⛽",
-            subtitle = fuelPrices,
-            url = "https://nbeub.ca/current-petroleum-prices-2",
-            accent = Color(0xFFFFC107)
-        ),
+            var eventType = parser.eventType
 
-        Tile(
-            title = "Hwy 10",
-            icon = "🛣️",
-            subtitle = "Current Hwy 10 road conditions",
-            url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10",
-            accent = Color(0xFFFF9800)
-        ),
+            var insideEntry = false
+            var insideTitle = false
+            var latestTitle = ""
+            var latestUrl = ""
 
-        Tile(
-            title = "Police",
-            icon = "🚓",
-            subtitle = policeNews,
-            url = policeUrl,
-            accent = Color(0xFFEF5350)
-        ),
-
-        Tile(
-            title = "Fire",
-            icon = "🔥",
-            subtitle = fireInfo,
-            url = "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA",
-            accent = Color(0xFFFF7043)
-        ),
-
-        Tile(
-            title = "Traffic & Accidents",
-            icon = "🚗",
-            subtitle = "Live NB traffic events, accidents, closures & construction",
-            url = "https://511.gnb.ca/list/events/traffic",
-            accent = Color(0xFFAB47BC)
-        )
-    )
-
-    // ---------------------------------------------------------
-    // DARK THEME
-    // ---------------------------------------------------------
-
-    val darkColors = darkColorScheme(
-        primary = Color(0xFF69F0AE),
-        secondary = Color(0xFF80CBC4),
-        background = Color(0xFF101214),
-        surface = Color(0xFF181B1F),
-        surfaceVariant = Color(0xFF24282D),
-        onBackground = Color.White,
-        onSurface = Color.White
-    )
-
-    MaterialTheme(
-        colorScheme = darkColors
-    ) {
-
-        Scaffold(
-
-            containerColor = Color(0xFF101214),
-
-            topBar = {
-
-                TopAppBar(
-
-                    title = {
-
-                        Column {
-
-                            Text(
-                                text = "Grand Lake Alert",
-                                style = MaterialTheme
-                                    .typography
-                                    .titleLarge
-                            )
-
-                            Text(
-                                text = "LOCAL INFORMATION",
-                                style = MaterialTheme
-                                    .typography
-                                    .labelSmall,
-                                color = Color(0xFF69F0AE)
-                            )
-                        }
-                    },
-
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF15181B)
-                    )
-                )
-            }
-
-        ) { paddingValues ->
-
-            Column(
-
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 14.dp)
+            while (
+                eventType != XmlPullParser.END_DOCUMENT
             ) {
 
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
+                when (eventType) {
 
-                // -------------------------------------------------
-                // AREA HEADER
-                // -------------------------------------------------
+                    XmlPullParser.START_TAG -> {
 
-                Card(
+                        when (parser.name.lowercase()) {
 
-                    modifier = Modifier.fillMaxWidth(),
+                            "entry" -> {
+                                insideEntry = true
+                            }
 
-                    shape = RoundedCornerShape(18.dp),
+                            "title" -> {
+                                if (insideEntry) {
+                                    insideTitle = true
+                                }
+                            }
 
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF181D20)
-                    )
-                ) {
+                            "link" -> {
+                                if (insideEntry) {
 
-                    Row(
+                                    val href =
+                                        parser.getAttributeValue(
+                                            null,
+                                            "href"
+                                        )
 
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                horizontal = 16.dp,
-                                vertical = 12.dp
-                            ),
-
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-
-                        StatusIndicator()
-
-                        Spacer(
-                            modifier = Modifier.size(10.dp)
-                        )
-
-                        Column {
-
-                            Text(
-                                text = "AREA",
-                                style = MaterialTheme
-                                    .typography
-                                    .labelSmall,
-                                color = Color(0xFF8F9BA3)
-                            )
-
-                            Text(
-                                text = "Grand Lake, NB",
-                                style = MaterialTheme
-                                    .typography
-                                    .titleMedium
-                            )
-                        }
-                    }
-                }
-
-                Spacer(
-                    modifier = Modifier.height(14.dp)
-                )
-
-                // -------------------------------------------------
-                // INFORMATION GRID
-                // -------------------------------------------------
-
-                LazyVerticalGrid(
-
-                    columns = GridCells.Fixed(2),
-
-                    modifier = Modifier.fillMaxSize(),
-
-                    verticalArrangement =
-                        Arrangement.spacedBy(12.dp),
-
-                    horizontalArrangement =
-                        Arrangement.spacedBy(12.dp),
-
-                    content = {
-
-                        items(tiles) { tile ->
-
-                            AnimatedVisibility(
-
-                                visible = showTiles,
-
-                                enter =
-                                    fadeIn(
-                                        animationSpec =
-                                            tween(500)
-                                    ) +
-                                    slideInVertically(
-                                        initialOffsetY = {
-                                            80
-                                        },
-                                        animationSpec =
-                                            tween(500)
-                                    )
-                            ) {
-
-                                AlertTile(
-                                    tile = tile,
-                                    context = context
-                                )
+                                    if (
+                                        !href.isNullOrBlank() &&
+                                        latestUrl.isBlank()
+                                    ) {
+                                        latestUrl = href
+                                    }
+                                }
                             }
                         }
                     }
-                )
+
+                    XmlPullParser.TEXT -> {
+
+                        if (
+                            insideEntry &&
+                            insideTitle
+                        ) {
+                            latestTitle +=
+                                parser.text.trim()
+                        }
+                    }
+
+                    XmlPullParser.END_TAG -> {
+
+                        when (parser.name.lowercase()) {
+
+                            "title" -> {
+                                insideTitle = false
+                            }
+
+                            "entry" -> {
+                                if (insideEntry) {
+                                    insideEntry = false
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
+                eventType = parser.next()
+            }
+
+            Pair(
+                latestTitle.trim(),
+                latestUrl.trim()
+            )
+        }
+
+        if (result.first.isNotBlank()) {
+
+            policeNews =
+                "Latest: ${result.first}"
+
+            if (result.second.isNotBlank()) {
+                policeUrl = result.second
+            }
+
+        } else {
+
+            policeNews =
+                "Latest RCMP news unavailable"
+        }
+
+    } catch (_: Exception) {
+
+        policeNews =
+            "RCMP news temporarily unavailable"
+    }
+}
+
+// ---------------------------------------------------------
+// NEW BRUNSWICK WILDFIRE INFORMATION
+// ---------------------------------------------------------
+
+LaunchedEffect(Unit) {
+
+    fireInfo = try {
+
+        withContext(Dispatchers.IO) {
+
+            val fireUrl =
+                "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
+                        "New_Brunswick_Fires/" +
+                        "New_Brunswick_Fire_Locations/" +
+                        "FeatureServer/0/query" +
+                        "?where=1%3D1" +
+                        "&outFields=FIELD_FIRE_NAME" +
+                        "&returnGeometry=false" +
+                        "&f=json"
+
+            val json = JSONObject(
+                URL(fireUrl).readText()
+            )
+
+            val features =
+                json.optJSONArray("features")
+
+            val count =
+                features?.length() ?: 0
+
+            if (count == 0) {
+
+                "✅ No wildfire locations reported"
+
+            } else {
+
+                "🔥 $count NB wildfire location" +
+                        if (count == 1) "" else "s"
             }
         }
+
+    } catch (_: Exception) {
+
+        "Wildfire information unavailable"
     }
+}
+
+// ---------------------------------------------------------
+// START TILE ANIMATION
+// ---------------------------------------------------------
+
+LaunchedEffect(Unit) {
+
+    kotlinx.coroutines.delay(250)
+
+    showTiles = true
+}
+
+// ---------------------------------------------------------
+// TILES
+// ---------------------------------------------------------
+
+val tiles = listOf(
+
+    Tile(
+        title = "Weather",
+        icon = "🌦️",
+        subtitle = weather,
+        url = null,
+        accent = Color(0xFF42A5F5)
+    ),
+
+    Tile(
+        title = "Minto School",
+        icon = "🏫",
+        subtitle = schoolAlerts,
+        url = "https://asdw.nbed.ca/news/alerts-dashboard/",
+        accent = Color(0xFF66BB6A)
+    ),
+
+    Tile(
+        title = "Fuel",
+        icon = "⛽",
+        subtitle = fuelPrices,
+        url = "https://nbeub.ca/current-petroleum-prices-2",
+        accent = Color(0xFFFFC107)
+    ),
+
+    Tile(
+        title = "Hwy 10",
+        icon = "🛣️",
+        subtitle = "Current Hwy 10 road conditions",
+        url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10",
+        accent = Color(0xFFFF9800)
+    ),
+
+    Tile(
+        title = "Police",
+        icon = "🚓",
+        subtitle = policeNews,
+        url = policeUrl,
+        accent = Color(0xFFEF5350)
+    ),
+
+    Tile(
+        title = "Fire",
+        icon = "🔥",
+        subtitle = fireInfo,
+        url = "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA",
+        accent = Color(0xFFFF7043)
+    ),
+
+    Tile(
+        title = "Traffic & Accidents",
+        icon = "🚗",
+        subtitle = "Live NB traffic events, accidents, closures & construction",
+        url = "https://511.gnb.ca/list/events/traffic",
+        accent = Color(0xFFAB47BC)
+    )
+)
+
+// ---------------------------------------------------------
+// DARK THEME
+// ---------------------------------------------------------
+
+val darkColors = darkColorScheme(
+    primary = Color(0xFF69F0AE),
+    secondary = Color(0xFF80CBC4),
+    background = Color(0xFF101214),
+    surface = Color(0xFF181B1F),
+    surfaceVariant = Color(0xFF24282D),
+    onBackground = Color.White,
+    onSurface = Color.White
+)
+
+MaterialTheme(
+    colorScheme = darkColors
+) {
+
+    Scaffold(
+
+        containerColor = Color(0xFF101214),
+
+        topBar = {
+
+            TopAppBar(
+
+                title = {
+
+                    Column {
+
+                        Text(
+                            text = "Grand Lake Alert",
+                            style = MaterialTheme
+                                .typography
+                                .titleLarge
+                        )
+
+                        Text(
+                            text = "LOCAL INFORMATION",
+                            style = MaterialTheme
+                                .typography
+                                .labelSmall,
+                            color = Color(0xFF69F0AE)
+                        )
+                    }
+                },
+
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF15181B)
+                )
+            )
+        }
+
+    ) { paddingValues ->
+
+        Column(
+
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 14.dp)
+        ) {
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            // -------------------------------------------------
+            // AREA HEADER
+            // -------------------------------------------------
+
+            Card(
+
+                modifier = Modifier.fillMaxWidth(),
+
+                shape = RoundedCornerShape(18.dp),
+
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF181D20)
+                )
+            ) {
+
+                Row(
+
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 16.dp,
+                            vertical = 12.dp
+                        ),
+
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+
+                    StatusIndicator()
+
+                    Spacer(
+                        modifier = Modifier.size(10.dp)
+                    )
+
+                    Column {
+
+                        Text(
+                            text = "AREA",
+                            style = MaterialTheme
+                                .typography
+                                .labelSmall,
+                            color = Color(0xFF8F9BA3)
+                        )
+
+                        Text(
+                            text = "Grand Lake, NB",
+                            style = MaterialTheme
+                                .typography
+                                .titleMedium
+                        )
+                    }
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.height(14.dp)
+            )
+
+            // -------------------------------------------------
+            // INFORMATION GRID
+            // -------------------------------------------------
+
+            LazyVerticalGrid(
+
+                columns = GridCells.Fixed(2),
+
+                modifier = Modifier.fillMaxSize(),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp),
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp),
+
+                content = {
+
+                    items(tiles) { tile ->
+
+                        AnimatedVisibility(
+
+                            visible = showTiles,
+
+                            enter =
+                                fadeIn(
+                                    animationSpec =
+                                        tween(500)
+                                ) +
+                                slideInVertically(
+                                    initialOffsetY = {
+                                        80
+                                    },
+                                    animationSpec =
+                                        tween(500)
+                                )
+                        ) {
+
+                            AlertTile(
+                                tile = tile,
+                                context = context
+                            )
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
+```
+
 }
 
 // -------------------------------------------------------------
@@ -678,40 +684,43 @@ fun GrandLakeAlertApp() {
 @Composable
 fun StatusIndicator() {
 
-    val transition =
-        rememberInfiniteTransition(
-            label = "statusPulse"
+```
+val transition =
+    rememberInfiniteTransition(
+        label = "statusPulse"
+    )
+
+val alpha by transition.animateFloat(
+
+    initialValue = 0.35f,
+
+    targetValue = 1f,
+
+    animationSpec =
+        infiniteRepeatable(
+            animation =
+                tween(
+                    durationMillis = 900,
+                    easing = LinearEasing
+                ),
+            repeatMode = RepeatMode.Reverse
+        ),
+
+    label = "statusAlpha"
+)
+
+Box(
+
+    modifier = Modifier
+        .size(12.dp)
+        .alpha(alpha)
+        .background(
+            color = Color(0xFF69F0AE),
+            shape = CircleShape
         )
+)
+```
 
-    val alpha by transition.animateFloat(
-
-        initialValue = 0.35f,
-
-        targetValue = 1f,
-
-        animationSpec =
-            infiniteRepeatable(
-                animation =
-                    tween(
-                        durationMillis = 900,
-                        easing = LinearEasing
-                    ),
-                repeatMode = RepeatMode.Reverse
-            ),
-
-        label = "statusAlpha"
-    )
-
-    Box(
-
-        modifier = Modifier
-            .size(12.dp)
-            .alpha(alpha)
-            .background(
-                color = Color(0xFF69F0AE),
-                shape = CircleShape
-            )
-    )
 }
 
 // -------------------------------------------------------------
@@ -720,130 +729,138 @@ fun StatusIndicator() {
 
 @Composable
 fun AlertTile(
-    tile: Tile,
-    context: android.content.Context
+tile: Tile,
+context: android.content.Context
 ) {
 
-    Card(
+```
+Card(
+
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(225.dp),
+
+    shape = RoundedCornerShape(20.dp),
+
+    colors = CardDefaults.cardColors(
+        containerColor = Color(0xFF191D21)
+    ),
+
+    elevation = CardDefaults.cardElevation(
+        defaultElevation = 4.dp
+    )
+) {
+
+    Column(
 
         modifier = Modifier
-            .fillMaxWidth()
-            .height(210.dp),
-
-        shape = RoundedCornerShape(20.dp),
-
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF191D21)
-        ),
-
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
-        )
+            .fillMaxSize()
+            .padding(15.dp)
     ) {
 
-        Column(
+        // -------------------------------------------------
+        // ICON
+        // -------------------------------------------------
+
+        Box(
 
             modifier = Modifier
-                .fillMaxSize()
-                .padding(15.dp)
+                .size(48.dp)
+                .background(
+                    color = tile.accent.copy(alpha = 0.16f),
+                    shape = RoundedCornerShape(14.dp)
+                ),
+
+            contentAlignment =
+                Alignment.Center
         ) {
 
-            // -------------------------------------------------
-            // ICON
-            // -------------------------------------------------
+            Text(
+                text = tile.icon,
+                style = MaterialTheme
+                    .typography
+                    .headlineMedium
+            )
+        }
 
-            Box(
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
+
+        // -------------------------------------------------
+        // TITLE
+        // -------------------------------------------------
+
+        Text(
+
+            text = tile.title,
+
+            style = MaterialTheme
+                .typography
+                .titleMedium,
+
+            color = tile.accent,
+
+            maxLines = 2
+        )
+
+        Spacer(
+            modifier = Modifier.height(5.dp)
+        )
+
+        // -------------------------------------------------
+        // INFORMATION
+        // -------------------------------------------------
+
+        Text(
+
+            text = tile.subtitle,
+
+            style = MaterialTheme
+                .typography
+                .bodySmall,
+
+            color = Color(0xFFD5D9DC),
+
+            maxLines = 5
+        )
+
+        Spacer(
+            modifier = Modifier.weight(1f)
+        )
+
+        // -------------------------------------------------
+        // SOURCE BUTTON
+        // -------------------------------------------------
+
+        if (tile.url != null) {
+
+            TextButton(
+
+                onClick = {
+
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(tile.url)
+                    )
+
+                    context.startActivity(intent)
+                },
 
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = tile.accent.copy(alpha = 0.16f),
-                        shape = RoundedCornerShape(14.dp)
-                    ),
-
-                contentAlignment =
-                    Alignment.Center
+                    .fillMaxWidth()
+                    .height(40.dp)
             ) {
 
                 Text(
-                    text = tile.icon,
-                    style = MaterialTheme
-                        .typography
-                        .headlineMedium
+                    text = "OPEN SOURCE",
+                    color = tile.accent,
+                    maxLines = 1
                 )
-            }
-
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
-            // -------------------------------------------------
-            // TITLE
-            // -------------------------------------------------
-
-            Text(
-
-                text = tile.title,
-
-                style = MaterialTheme
-                    .typography
-                    .titleMedium,
-
-                color = tile.accent
-            )
-
-            Spacer(
-                modifier = Modifier.height(5.dp)
-            )
-
-            // -------------------------------------------------
-            // INFORMATION
-            // -------------------------------------------------
-
-            Text(
-
-                text = tile.subtitle,
-
-                style = MaterialTheme
-                    .typography
-                    .bodySmall,
-
-                color = Color(0xFFD5D9DC),
-
-                maxLines = 5
-            )
-
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
-
-            // -------------------------------------------------
-            // SOURCE BUTTON
-            // -------------------------------------------------
-
-            if (tile.url != null) {
-
-                TextButton(
-
-                    onClick = {
-
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(tile.url)
-                        )
-
-                        context.startActivity(intent)
-                    },
-
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-
-                    Text(
-                        text = "OPEN SOURCE",
-                        color = tile.accent
-                    )
-                }
             }
         }
     }
+}
+```
+
 }
