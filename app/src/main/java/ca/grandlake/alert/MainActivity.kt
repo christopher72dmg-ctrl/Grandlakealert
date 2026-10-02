@@ -6,30 +6,51 @@ import android.os.Bundle
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +64,8 @@ private data class Tile(
     val title: String,
     val icon: String,
     val subtitle: String,
-    val url: String?
+    val url: String?,
+    val accent: Color
 )
 
 class MainActivity : ComponentActivity() {
@@ -85,6 +107,10 @@ fun GrandLakeAlertApp() {
 
     var fireInfo by remember {
         mutableStateOf("Checking NB wildfire information…")
+    }
+
+    var showTiles by remember {
+        mutableStateOf(false)
     }
 
     // ---------------------------------------------------------
@@ -396,6 +422,17 @@ fun GrandLakeAlertApp() {
     }
 
     // ---------------------------------------------------------
+    // START TILE ANIMATION
+    // ---------------------------------------------------------
+
+    LaunchedEffect(Unit) {
+
+        kotlinx.coroutines.delay(250)
+
+        showTiles = true
+    }
+
+    // ---------------------------------------------------------
     // TILES
     // ---------------------------------------------------------
 
@@ -405,66 +442,109 @@ fun GrandLakeAlertApp() {
             title = "Weather",
             icon = "🌦️",
             subtitle = weather,
-            url = null
+            url = null,
+            accent = Color(0xFF42A5F5)
         ),
 
         Tile(
             title = "Minto School",
             icon = "🏫",
             subtitle = schoolAlerts,
-            url = "https://asdw.nbed.ca/news/alerts-dashboard/"
+            url = "https://asdw.nbed.ca/news/alerts-dashboard/",
+            accent = Color(0xFF66BB6A)
         ),
 
         Tile(
             title = "Fuel",
             icon = "⛽",
             subtitle = fuelPrices,
-            url = "https://nbeub.ca/current-petroleum-prices-2"
+            url = "https://nbeub.ca/current-petroleum-prices-2",
+            accent = Color(0xFFFFC107)
         ),
 
         Tile(
             title = "Hwy 10",
             icon = "🛣️",
             subtitle = "Current Hwy 10 road conditions",
-            url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10"
+            url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10",
+            accent = Color(0xFFFF9800)
         ),
 
         Tile(
             title = "Police",
             icon = "🚓",
             subtitle = policeNews,
-            url = policeUrl
+            url = policeUrl,
+            accent = Color(0xFFEF5350)
         ),
 
         Tile(
             title = "Fire",
             icon = "🔥",
             subtitle = fireInfo,
-            url = "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA"
+            url = "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA",
+            accent = Color(0xFFFF7043)
         ),
 
         Tile(
             title = "Traffic & Accidents",
             icon = "🚗",
             subtitle = "Live NB traffic events, accidents, closures & construction",
-            url = "https://511.gnb.ca/list/events/traffic"
+            url = "https://511.gnb.ca/list/events/traffic",
+            accent = Color(0xFFAB47BC)
         )
     )
 
     // ---------------------------------------------------------
-    // USER INTERFACE
+    // DARK THEME
     // ---------------------------------------------------------
 
-    MaterialTheme {
+    val darkColors = darkColorScheme(
+        primary = Color(0xFF69F0AE),
+        secondary = Color(0xFF80CBC4),
+        background = Color(0xFF101214),
+        surface = Color(0xFF181B1F),
+        surfaceVariant = Color(0xFF24282D),
+        onBackground = Color.White,
+        onSurface = Color.White
+    )
+
+    MaterialTheme(
+        colorScheme = darkColors
+    ) {
 
         Scaffold(
+
+            containerColor = Color(0xFF101214),
 
             topBar = {
 
                 TopAppBar(
+
                     title = {
-                        Text("Grand Lake Alert")
-                    }
+
+                        Column {
+
+                            Text(
+                                text = "Grand Lake Alert",
+                                style = MaterialTheme
+                                    .typography
+                                    .titleLarge
+                            )
+
+                            Text(
+                                text = "LOCAL INFORMATION",
+                                style = MaterialTheme
+                                    .typography
+                                    .labelSmall,
+                                color = Color(0xFF69F0AE)
+                            )
+                        }
+                    },
+
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFF15181B)
+                    )
                 )
             }
 
@@ -475,100 +555,293 @@ fun GrandLakeAlertApp() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(16.dp)
+                    .padding(horizontal = 14.dp)
             ) {
-
-                Text(
-                    text = "AREA",
-                    style = MaterialTheme.typography.labelLarge
-                )
-
-                Text(
-                    text = "Grand Lake, NB",
-                    style = MaterialTheme.typography.headlineSmall
-                )
 
                 Spacer(
                     modifier = Modifier.height(12.dp)
                 )
 
+                // -------------------------------------------------
+                // AREA HEADER
+                // -------------------------------------------------
+
+                Card(
+
+                    modifier = Modifier.fillMaxWidth(),
+
+                    shape = RoundedCornerShape(18.dp),
+
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF181D20)
+                    )
+                ) {
+
+                    Row(
+
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = 16.dp,
+                                vertical = 12.dp
+                            ),
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        StatusIndicator()
+
+                        Spacer(
+                            modifier = Modifier.size(10.dp)
+                        )
+
+                        Column {
+
+                            Text(
+                                text = "AREA",
+                                style = MaterialTheme
+                                    .typography
+                                    .labelSmall,
+                                color = Color(0xFF8F9BA3)
+                            )
+
+                            Text(
+                                text = "Grand Lake, NB",
+                                style = MaterialTheme
+                                    .typography
+                                    .titleMedium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(
+                    modifier = Modifier.height(14.dp)
+                )
+
+                // -------------------------------------------------
+                // INFORMATION GRID
+                // -------------------------------------------------
+
                 LazyVerticalGrid(
 
                     columns = GridCells.Fixed(2),
+
+                    modifier = Modifier.fillMaxSize(),
 
                     verticalArrangement =
                         Arrangement.spacedBy(12.dp),
 
                     horizontalArrangement =
-                        Arrangement.spacedBy(12.dp)
+                        Arrangement.spacedBy(12.dp),
 
-                ) {
+                    content = {
 
-                    items(tiles) { tile ->
+                        items(tiles) { tile ->
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                            AnimatedVisibility(
 
-                            Column(
-                                modifier = Modifier.padding(16.dp)
+                                visible = showTiles,
+
+                                enter =
+                                    fadeIn(
+                                        animationSpec =
+                                            tween(500)
+                                    ) +
+                                    slideInVertically(
+                                        initialOffsetY = {
+                                            80
+                                        },
+                                        animationSpec =
+                                            tween(500)
+                                    )
                             ) {
 
-                                Text(
-                                    text = tile.icon,
-                                    style = MaterialTheme
-                                        .typography
-                                        .headlineMedium
+                                AlertTile(
+                                    tile = tile,
+                                    context = context
                                 )
-
-                                Spacer(
-                                    modifier = Modifier.height(4.dp)
-                                )
-
-                                Text(
-                                    text = tile.title,
-                                    style = MaterialTheme
-                                        .typography
-                                        .titleMedium
-                                )
-
-                                Spacer(
-                                    modifier = Modifier.height(4.dp)
-                                )
-
-                                Text(
-                                    text = tile.subtitle,
-                                    style = MaterialTheme
-                                        .typography
-                                        .bodySmall
-                                )
-
-                                if (tile.url != null) {
-
-                                    Spacer(
-                                        modifier = Modifier.height(8.dp)
-                                    )
-
-                                    TextButton(
-
-                                        onClick = {
-
-                                            val intent = Intent(
-                                                Intent.ACTION_VIEW,
-                                                Uri.parse(tile.url)
-                                            )
-
-                                            context.startActivity(intent)
-                                        }
-
-                                    ) {
-
-                                        Text("Open source")
-                                    }
-                                }
                             }
                         }
                     }
+                )
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// STATUS INDICATOR
+// -------------------------------------------------------------
+
+@Composable
+fun StatusIndicator() {
+
+    val transition =
+        rememberInfiniteTransition(
+            label = "statusPulse"
+        )
+
+    val alpha by transition.animateFloat(
+
+        initialValue = 0.35f,
+
+        targetValue = 1f,
+
+        animationSpec =
+            infiniteRepeatable(
+                animation =
+                    tween(
+                        durationMillis = 900,
+                        easing = LinearEasing
+                    ),
+                repeatMode = RepeatMode.Reverse
+            ),
+
+        label = "statusAlpha"
+    )
+
+    Box(
+
+        modifier = Modifier
+            .size(12.dp)
+            .alpha(alpha)
+            .background(
+                color = Color(0xFF69F0AE),
+                shape = CircleShape
+            )
+    )
+}
+
+// -------------------------------------------------------------
+// ALERT TILE
+// -------------------------------------------------------------
+
+@Composable
+fun AlertTile(
+    tile: Tile,
+    context: android.content.Context
+) {
+
+    Card(
+
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(210.dp),
+
+        shape = RoundedCornerShape(20.dp),
+
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF191D21)
+        ),
+
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
+    ) {
+
+        Column(
+
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(15.dp)
+        ) {
+
+            // -------------------------------------------------
+            // ICON
+            // -------------------------------------------------
+
+            Box(
+
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = tile.accent.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(14.dp)
+                    ),
+
+                contentAlignment =
+                    Alignment.Center
+            ) {
+
+                Text(
+                    text = tile.icon,
+                    style = MaterialTheme
+                        .typography
+                        .headlineMedium
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            // -------------------------------------------------
+            // TITLE
+            // -------------------------------------------------
+
+            Text(
+
+                text = tile.title,
+
+                style = MaterialTheme
+                    .typography
+                    .titleMedium,
+
+                color = tile.accent
+            )
+
+            Spacer(
+                modifier = Modifier.height(5.dp)
+            )
+
+            // -------------------------------------------------
+            // INFORMATION
+            // -------------------------------------------------
+
+            Text(
+
+                text = tile.subtitle,
+
+                style = MaterialTheme
+                    .typography
+                    .bodySmall,
+
+                color = Color(0xFFD5D9DC),
+
+                maxLines = 5
+            )
+
+            Spacer(
+                modifier = Modifier.weight(1f)
+            )
+
+            // -------------------------------------------------
+            // SOURCE BUTTON
+            // -------------------------------------------------
+
+            if (tile.url != null) {
+
+                TextButton(
+
+                    onClick = {
+
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(tile.url)
+                        )
+
+                        context.startActivity(intent)
+                    },
+
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Text(
+                        text = "OPEN SOURCE",
+                        color = tile.accent
+                    )
                 }
             }
         }
