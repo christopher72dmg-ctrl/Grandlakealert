@@ -83,6 +83,10 @@ fun GrandLakeAlertApp() {
         mutableStateOf("https://rcmp.ca/en/nb/news")
     }
 
+    var fireInfo by remember {
+        mutableStateOf("Checking NB wildfire information…")
+    }
+
     // ---------------------------------------------------------
     // WEATHER
     // ---------------------------------------------------------
@@ -121,7 +125,6 @@ fun GrandLakeAlertApp() {
 
     // ---------------------------------------------------------
     // FUEL PRICES
-    // Official New Brunswick Energy & Utilities Board
     // ---------------------------------------------------------
 
     LaunchedEffect(Unit) {
@@ -216,7 +219,6 @@ fun GrandLakeAlertApp() {
 
     // ---------------------------------------------------------
     // RCMP POLICE NEWS
-    // Official New Brunswick RCMP news feed
     // ---------------------------------------------------------
 
     LaunchedEffect(Unit) {
@@ -332,6 +334,7 @@ fun GrandLakeAlertApp() {
                 if (result.second.isNotBlank()) {
                     policeUrl = result.second
                 }
+
             } else {
 
                 policeNews =
@@ -342,6 +345,54 @@ fun GrandLakeAlertApp() {
 
             policeNews =
                 "RCMP news temporarily unavailable"
+        }
+    }
+
+    // ---------------------------------------------------------
+    // NEW BRUNSWICK WILDFIRE INFORMATION
+    // Official NB DNR ArcGIS service
+    // ---------------------------------------------------------
+
+    LaunchedEffect(Unit) {
+
+        fireInfo = try {
+
+            withContext(Dispatchers.IO) {
+
+                val fireUrl =
+                    "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
+                            "New_Brunswick_Fires/" +
+                            "New_Brunswick_Fire_Locations/" +
+                            "FeatureServer/0/query" +
+                            "?where=1%3D1" +
+                            "&outFields=FIELD_FIRE_NAME" +
+                            "&returnGeometry=false" +
+                            "&f=json"
+
+                val json = JSONObject(
+                    URL(fireUrl).readText()
+                )
+
+                val features =
+                    json.optJSONArray("features")
+
+                val count =
+                    features?.length() ?: 0
+
+                if (count == 0) {
+
+                    "✅ No wildfire locations reported"
+
+                } else {
+
+                    "🔥 $count NB wildfire location" +
+                            if (count == 1) "" else "s"
+                }
+            }
+
+        } catch (_: Exception) {
+
+            "Wildfire information unavailable"
         }
     }
 
@@ -389,8 +440,8 @@ fun GrandLakeAlertApp() {
         Tile(
             title = "Fire",
             icon = "🔥",
-            subtitle = "Public fire information",
-            url = "https://www.gnb.ca"
+            subtitle = fireInfo,
+            url = "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA"
         ),
 
         Tile(
