@@ -350,7 +350,6 @@ fun GrandLakeAlertApp() {
 
     // ---------------------------------------------------------
     // NEW BRUNSWICK WILDFIRE INFORMATION
-    // Official NB DNR ArcGIS service
     // ---------------------------------------------------------
 
     LaunchedEffect(Unit) {
@@ -445,10 +444,10 @@ fun GrandLakeAlertApp() {
         ),
 
         Tile(
-            title = "Ambulance",
-            icon = "🚑",
-            subtitle = "Public emergency information",
-            url = "https://www.gnb.ca"
+            title = "Traffic & Accidents",
+            icon = "🚗",
+            subtitle = "Live NB traffic events, accidents, closures & construction",
+            url = "https://511.gnb.ca/list/events/traffic"
         )
     )
 
