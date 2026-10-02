@@ -117,10 +117,6 @@ var showTiles by remember {
     mutableStateOf(false)
 }
 
-// ---------------------------------------------------------
-// WEATHER
-// ---------------------------------------------------------
-
 LaunchedEffect(Unit) {
 
     weather = try {
@@ -152,10 +148,6 @@ LaunchedEffect(Unit) {
         "Weather temporarily unavailable"
     }
 }
-
-// ---------------------------------------------------------
-// FUEL PRICES
-// ---------------------------------------------------------
 
 LaunchedEffect(Unit) {
 
@@ -209,10 +201,6 @@ LaunchedEffect(Unit) {
     }
 }
 
-// ---------------------------------------------------------
-// SCHOOL ALERTS
-// ---------------------------------------------------------
-
 LaunchedEffect(Unit) {
 
     schoolAlerts = try {
@@ -246,10 +234,6 @@ LaunchedEffect(Unit) {
         "School alerts unavailable"
     }
 }
-
-// ---------------------------------------------------------
-// RCMP POLICE NEWS
-// ---------------------------------------------------------
 
 LaunchedEffect(Unit) {
 
@@ -378,10 +362,6 @@ LaunchedEffect(Unit) {
     }
 }
 
-// ---------------------------------------------------------
-// NEW BRUNSWICK WILDFIRE INFORMATION
-// ---------------------------------------------------------
-
 LaunchedEffect(Unit) {
 
     fireInfo = try {
@@ -425,20 +405,12 @@ LaunchedEffect(Unit) {
     }
 }
 
-// ---------------------------------------------------------
-// START TILE ANIMATION
-// ---------------------------------------------------------
-
 LaunchedEffect(Unit) {
 
     kotlinx.coroutines.delay(250)
 
     showTiles = true
 }
-
-// ---------------------------------------------------------
-// TILES
-// ---------------------------------------------------------
 
 val tiles = listOf(
 
@@ -498,10 +470,6 @@ val tiles = listOf(
         accent = Color(0xFFAB47BC)
     )
 )
-
-// ---------------------------------------------------------
-// DARK THEME
-// ---------------------------------------------------------
 
 val darkColors = darkColorScheme(
     primary = Color(0xFF69F0AE),
@@ -566,10 +534,6 @@ MaterialTheme(
                 modifier = Modifier.height(12.dp)
             )
 
-            // -------------------------------------------------
-            // AREA HEADER
-            // -------------------------------------------------
-
             Card(
 
                 modifier = Modifier.fillMaxWidth(),
@@ -624,10 +588,6 @@ MaterialTheme(
                 modifier = Modifier.height(14.dp)
             )
 
-            // -------------------------------------------------
-            // INFORMATION GRID
-            // -------------------------------------------------
-
             LazyVerticalGrid(
 
                 columns = GridCells.Fixed(2),
@@ -638,48 +598,42 @@ MaterialTheme(
                     Arrangement.spacedBy(12.dp),
 
                 horizontalArrangement =
-                    Arrangement.spacedBy(12.dp),
+                    Arrangement.spacedBy(12.dp)
+            ) {
 
-                content = {
+                items(tiles) { tile ->
 
-                    items(tiles) { tile ->
+                    AnimatedVisibility(
 
-                        AnimatedVisibility(
+                        visible = showTiles,
 
-                            visible = showTiles,
-
-                            enter =
-                                fadeIn(
-                                    animationSpec =
-                                        tween(500)
-                                ) +
-                                slideInVertically(
-                                    initialOffsetY = {
-                                        80
-                                    },
-                                    animationSpec =
-                                        tween(500)
-                                )
-                        ) {
-
-                            AlertTile(
-                                tile = tile,
-                                context = context
+                        enter =
+                            fadeIn(
+                                animationSpec =
+                                    tween(500)
+                            ) +
+                            slideInVertically(
+                                initialOffsetY = {
+                                    80
+                                },
+                                animationSpec =
+                                    tween(500)
                             )
-                        }
+                    ) {
+
+                        AlertTile(
+                            tile = tile,
+                            context = context
+                        )
                     }
                 }
-            )
+            }
         }
     }
 }
 ```
 
 }
-
-// -------------------------------------------------------------
-// STATUS INDICATOR
-// -------------------------------------------------------------
 
 @Composable
 fun StatusIndicator() {
@@ -723,10 +677,6 @@ Box(
 
 }
 
-// -------------------------------------------------------------
-// ALERT TILE
-// -------------------------------------------------------------
-
 @Composable
 fun AlertTile(
 tile: Tile,
@@ -758,10 +708,6 @@ Card(
             .padding(15.dp)
     ) {
 
-        // -------------------------------------------------
-        // ICON
-        // -------------------------------------------------
-
         Box(
 
             modifier = Modifier
@@ -787,10 +733,6 @@ Card(
             modifier = Modifier.height(10.dp)
         )
 
-        // -------------------------------------------------
-        // TITLE
-        // -------------------------------------------------
-
         Text(
 
             text = tile.title,
@@ -808,10 +750,6 @@ Card(
             modifier = Modifier.height(5.dp)
         )
 
-        // -------------------------------------------------
-        // INFORMATION
-        // -------------------------------------------------
-
         Text(
 
             text = tile.subtitle,
@@ -828,10 +766,6 @@ Card(
         Spacer(
             modifier = Modifier.weight(1f)
         )
-
-        // -------------------------------------------------
-        // SOURCE BUTTON
-        // -------------------------------------------------
 
         if (tile.url != null) {
 
