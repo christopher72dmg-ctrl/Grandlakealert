@@ -1,7 +1,10 @@
 package ca.grandlake.alert
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 
 import androidx.activity.ComponentActivity
@@ -64,6 +67,18 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.google.android.gms.nearby.Nearby
+import com.google.android.gms.nearby.connection.AdvertisingOptions
+import com.google.android.gms.nearby.connection.ConnectionInfo
+import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
+import com.google.android.gms.nearby.connection.ConnectionResolution
+import com.google.android.gms.nearby.connection.ConnectionsClient
+import com.google.android.gms.nearby.connection.DiscoveryOptions
+import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback
+import com.google.android.gms.nearby.connection.Payload
+import com.google.android.gms.nearby.connection.PayloadCallback
+import com.google.android.gms.nearby.connection.PayloadTransferUpdate
+import com.google.android.gms.nearby.connection.Strategy
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -817,85 +832,195 @@ private const val CHAT_TOPIC = "grandlakealert-emergency-chat"
 @Composable
 fun LocalEmergencyChat(onBack: () -> Unit) {
     val context = LocalContext.current
+    val activity = context as? MainActivity
     val messages = remember { mutableStateListOf<ChatMessage>() }
     var messageText by remember { mutableStateOf("") }
     var userName by remember { mutableStateOf("Guest") }
-    var online by remember { mutableStateOf(false) }
-    var statusText by remember { mutableStateOf("Connecting…") }
-    var lastMessageId by remember { mutableStateOf("") }
+    var statusText by remember { mutableStateOf("Starting local radio…") }
+    var peerCount by remember { mutableStateOf(0) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val connectedEndpoints = remember { mutableStateListOf<String>() }
+    val nearbyClient = remember { Nearby.getConnectionsClient(context) }
 
     val prefs = remember {
-        context.getSharedPreferences("grand_lake_chat", android.content.Context.MODE_PRIVATE)
+        context.getSharedPreferences(
+            "grand_lake_local_chat",
+            android.content.Context.MODE_PRIVATE
+        )
     }
 
-    LaunchedEffect(Unit) {
-        userName = prefs.getString("username", "Guest") ?: "Guest"
-        val saved = prefs.getString("messages", "") ?: ""
-        if (saved.isNotBlank()) {
-            saved.split("\\n").forEach { line ->
-                val parts = line.split("|", limit = 3)
-                if (parts.size == 3 && parts[2].isNotBlank()) {
-                    messages.add(ChatMessage(parts[0], parts[2], parts[1] == "me"))
-                }
-            }
-        }
-        if (messages.isEmpty()) {
-            messages.add(
-                ChatMessage(
-                    "Grand Lake Alert",
-                    "Online emergency chat ready. This is a public test room.",
-                    false
-                )
+    fun requiredPermissions(): Array<String> {
+        return when {
+            Build.VERSION.SDK_INT >= 32 -> arrayOf(
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.NEARBY_WIFI_DEVICES
+            )
+            Build.VERSION.SDK_INT >= 31 -> arrayOf(
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN
+            )
+            Build.VERSION.SDK_INT >= 29 -> arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+            else -> arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION
             )
         }
     }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    val sincePart = if (lastMessageId.isNotBlank()) "&since=" + lastMessageId else ""
-                    val url = URL("https://ntfy.sh/" + CHAT_TOPIC + "/json?poll=1" + sincePart)
-                    val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.requestMethod = "GET"
-                    connection.connectTimeout = 8000
-                    connection.readTimeout = 8000
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    connection.disconnect()
-                    response
-                }
+    fun hasPermissions(): Boolean {
+        return requiredPermissions().all {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                it
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
 
-                if (result.isNotBlank()) {
-                    result.lines().forEach { line ->
-                        if (line.isBlank()) return@forEach
-                        try {
-                            val json = JSONObject(line)
-                            if (json.optString("event") != "message") return@forEach
-                            val id = json.optString("id")
-                            val sender = json.optString("title").ifBlank { "Online user" }
-                            val body = json.optString("message")
-                            if (id.isNotBlank() && body.isNotBlank() && id != lastMessageId) {
-                                val mine = sender == userName
-                                if (!messages.any { it.text == body && it.sender == sender && it.mine == mine }) {
-                                    messages.add(ChatMessage(sender, body, mine))
-                                }
-                                lastMessageId = id
-                            }
-                        } catch (_: Exception) {
+    fun addLocalMessage(sender: String, text: String, mine: Boolean) {
+        if (text.isNotBlank()) {
+            messages.add(ChatMessage(sender, text, mine))
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        userName = prefs.getString("username", "Guest") ?: "Guest"
+
+        if (messages.isEmpty()) {
+            addLocalMessage(
+                "Grand Lake Alert",
+                "LOCAL OFFLINE CHAT TEST. Internet is not required.",
+                false
+            )
+        }
+
+        if (!hasPermissions()) {
+            activity?.requestPermissions(
+                requiredPermissions(),
+                7001
+            )
+            statusText = "Waiting for Nearby permissions…"
+        }
+    }
+
+    val payloadCallback = remember {
+        object : PayloadCallback() {
+            override fun onPayloadReceived(
+                endpointId: String,
+                payload: Payload
+            ) {
+                val bytes = payload.asBytes() ?: return
+                val received = String(bytes, Charsets.UTF_8)
+                val parts = received.split("|", limit = 2)
+
+                if (parts.size == 2) {
+                    val sender = parts[0].ifBlank { "Nearby phone" }
+                    val text = parts[1]
+
+                    if (text.isNotBlank()) {
+                        scope.launch {
+                            addLocalMessage(sender, text, false)
                         }
                     }
                 }
-
-                online = true
-                statusText = "ONLINE • shared room"
-            } catch (_: Exception) {
-                online = false
-                statusText = "OFFLINE • trying again…"
             }
 
-            kotlinx.coroutines.delay(4000)
+            override fun onPayloadTransferUpdate(
+                endpointId: String,
+                update: PayloadTransferUpdate
+            ) {
+            }
+        }
+    }
+
+    val connectionLifecycleCallback = remember {
+        object : ConnectionLifecycleCallback() {
+            override fun onConnectionInitiated(
+                endpointId: String,
+                connectionInfo: ConnectionInfo
+            ) {
+                nearbyClient.acceptConnection(endpointId, payloadCallback)
+            }
+
+            override fun onConnectionResult(
+                endpointId: String,
+                result: ConnectionResolution
+            ) {
+                if (result.status.isSuccess) {
+                    if (!connectedEndpoints.contains(endpointId)) {
+                        connectedEndpoints.add(endpointId)
+                    }
+                    peerCount = connectedEndpoints.size
+                    statusText = if (peerCount == 1) {
+                        "LOCAL • 1 phone connected"
+                    } else {
+                        "LOCAL • $peerCount phones connected"
+                    }
+                } else {
+                    statusText = "Nearby connection failed"
+                }
+            }
+
+            override fun onDisconnected(endpointId: String) {
+                connectedEndpoints.remove(endpointId)
+                peerCount = connectedEndpoints.size
+                statusText = if (peerCount == 0) {
+                    "LOCAL • waiting for nearby phones"
+                } else {
+                    "LOCAL • $peerCount phones connected"
+                }
+            }
+        }
+    }
+
+    val endpointDiscoveryCallback = remember {
+        object : EndpointDiscoveryCallback() {
+            override fun onEndpointFound(
+                endpointId: String,
+                info: com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
+            ) {
+                nearbyClient.requestConnection(
+                    userName.ifBlank { "Grand Lake phone" },
+                    endpointId,
+                    connectionLifecycleCallback
+                )
+            }
+
+            override fun onEndpointLost(endpointId: String) {
+            }
+        }
+    }
+
+    LaunchedEffect(hasPermissions()) {
+        if (!hasPermissions()) return@LaunchedEffect
+
+        try {
+            val strategy = Strategy.P2P_CLUSTER
+
+            nearbyClient.startAdvertising(
+                userName.ifBlank { "Grand Lake phone" },
+                "ca.grandlake.alert.localchat",
+                connectionLifecycleCallback,
+                AdvertisingOptions.Builder()
+                    .setStrategy(strategy)
+                    .build()
+            )
+
+            nearbyClient.startDiscovery(
+                "ca.grandlake.alert.localchat",
+                endpointDiscoveryCallback,
+                DiscoveryOptions.Builder()
+                    .setStrategy(strategy)
+                    .build()
+            )
+
+            statusText = "LOCAL • looking for nearby phones"
+        } catch (_: Exception) {
+            statusText = "LOCAL radio could not start"
         }
     }
 
@@ -903,10 +1028,28 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
+
         val saved = messages.joinToString("\\n") {
-            it.sender + "|" + if (it.mine) "me" else "online" + "|" + it.text.replace("\\n", " ")
+            it.sender + "|" +
+                if (it.mine) "me" else "nearby" +
+                "|" +
+                it.text.replace("\\n", " ")
         }
-        prefs.edit().putString("messages", saved).apply()
+
+        prefs.edit()
+            .putString("messages", saved)
+            .apply()
+    }
+
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            try {
+                nearbyClient.stopAdvertising()
+                nearbyClient.stopDiscovery()
+                nearbyClient.stopAllEndpoints()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     Scaffold(
@@ -918,7 +1061,7 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                         Text("Emergency Chat")
                         Text(
                             statusText,
-                            color = if (online) Color(0xFF69F0AE) else Color(0xFFFFB74D),
+                            color = Color(0xFF69F0AE),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -942,26 +1085,39 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                 .padding(12.dp)
         ) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF181B1F)
+                ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        "💬 ONLINE TEST ROOM",
+                        "📡 LOCAL OFFLINE TEST",
                         color = Color(0xFF69F0AE),
                         style = MaterialTheme.typography.titleSmall
                     )
+
                     Text(
-                        "Anyone using this test room can see messages. Do not post private information.",
+                        "Phone-to-phone chat using Nearby Connections. Internet is not required.",
                         color = Color.LightGray,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+
+                    Text(
+                        "Connected nearby phones: $peerCount",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+
                     OutlinedTextField(
                         value = userName,
                         onValueChange = {
                             userName = it.take(20)
-                            prefs.edit().putString("username", userName).apply()
+                            prefs.edit()
+                                .putString("username", userName)
+                                .apply()
                         },
                         label = { Text("Your name") },
                         singleLine = true,
@@ -976,26 +1132,38 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 lazyItems(messages) { message ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = if (message.mine) Arrangement.End else Arrangement.Start
+                        horizontalArrangement =
+                            if (message.mine) Arrangement.End
+                            else Arrangement.Start
                     ) {
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = if (message.mine) Color(0xFF245C43) else Color(0xFF24282D)
+                                containerColor =
+                                    if (message.mine) Color(0xFF245C43)
+                                    else Color(0xFF24282D)
                             ),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    horizontal = 14.dp,
+                                    vertical = 10.dp
+                                )
+                            ) {
                                 Text(
                                     message.sender,
                                     color = Color(0xFF69F0AE),
                                     style = MaterialTheme.typography.labelSmall
                                 )
+
                                 Text(
                                     message.text,
                                     color = Color.White,
@@ -1017,49 +1185,40 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                     value = messageText,
                     onValueChange = { messageText = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message…") },
+                    placeholder = { Text("Type a local message…") },
                     singleLine = false,
                     maxLines = 3,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
+
                 Spacer(modifier = Modifier.size(8.dp))
+
                 Button(
                     onClick = {
                         val clean = messageText.trim()
                         val sender = userName.trim().ifBlank { "Guest" }
 
                         if (clean.isNotEmpty()) {
-                            messages.add(ChatMessage(sender, clean, true))
+                            addLocalMessage(sender, clean, true)
                             messageText = ""
 
-                            scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    try {
-                                        val connection = URL("https://ntfy.sh/" + CHAT_TOPIC)
-                                            .openConnection() as java.net.HttpURLConnection
-                                        connection.requestMethod = "POST"
-                                        connection.doOutput = true
-                                        connection.connectTimeout = 8000
-                                        connection.readTimeout = 8000
-                                        connection.setRequestProperty("Title", sender)
-                                        connection.setRequestProperty(
-                                            "Content-Type",
-                                            "text/plain; charset=utf-8"
-                                        )
-                                        connection.outputStream.use {
-                                            it.write(clean.toByteArray(Charsets.UTF_8))
-                                        }
-                                        connection.inputStream.close()
-                                        connection.disconnect()
-                                    } catch (_: Exception) {
-                                    }
-                                }
+                            val payload = Payload.fromBytes(
+                                (sender + "|" + clean)
+                                    .toByteArray(Charsets.UTF_8)
+                            )
+
+                            connectedEndpoints.toList().forEach { endpointId ->
+                                nearbyClient.sendPayload(
+                                    endpointId,
+                                    payload
+                                )
                             }
                         }
                     },
-                    enabled = messageText.trim().isNotEmpty()
+                    enabled = messageText.trim().isNotEmpty() &&
+                        connectedEndpoints.isNotEmpty()
                 ) {
                     Text("SEND")
                 }
