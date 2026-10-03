@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -37,16 +38,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -109,6 +115,10 @@ fun GrandLakeAlertApp() {
     }
 
     var showTiles by remember {
+        mutableStateOf(false)
+    }
+
+    var showChat by remember {
         mutableStateOf(false)
     }
 
@@ -440,6 +450,14 @@ fun GrandLakeAlertApp() {
             subtitle = "Live NB traffic events, accidents, closures & construction",
             url = "https://511.gnb.ca/list/events/traffic",
             accent = Color(0xFFAB47BC)
+        ),
+
+        Tile(
+            title = "Emergency Chat",
+            icon = "💬",
+            subtitle = "Local chat • works without internet",
+            url = null,
+            accent = Color(0xFF69F0AE)
         )
     )
 
@@ -457,7 +475,12 @@ fun GrandLakeAlertApp() {
         colorScheme = darkColors
     ) {
 
-        Scaffold(
+        if (showChat) {
+            LocalEmergencyChat(
+                onBack = { showChat = false }
+            )
+        } else {
+            Scaffold(
 
             containerColor = Color(0xFF101214),
 
@@ -569,13 +592,15 @@ fun GrandLakeAlertApp() {
 
                                 AlertTile(
                                     tile = tile,
-                                    context = context
+                                    context = context,
+                                    onChatClick = { showChat = true }
                                 )
                             }
                         }
                     }
                 )
             }
+        }
         }
     }
 }
@@ -641,7 +666,8 @@ fun StatusIndicator() {
 @Composable
 fun AlertTile(
     tile: Tile,
-    context: android.content.Context
+    context: android.content.Context,
+    onChatClick: () -> Unit
 ) {
 
     Card(
@@ -734,6 +760,11 @@ fun AlertTile(
 
                     onClick = {
 
+                        if (tile.title == "Emergency Chat") {
+                            onChatClick()
+                            return@TextButton
+                        }
+
                         try {
 
                             val intent =
@@ -763,6 +794,166 @@ fun AlertTile(
 
                         softWrap = false
                     )
+                }
+            }
+        }
+    }
+}
+
+
+private data class ChatMessage(
+    val text: String,
+    val mine: Boolean
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalEmergencyChat(
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val messages = remember { mutableStateListOf<ChatMessage>() }
+    var messageText by remember { mutableStateOf("") }
+
+    val prefs = remember {
+        context.getSharedPreferences(
+            "grand_lake_chat",
+            android.content.Context.MODE_PRIVATE
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        val saved = prefs.getString("messages", "") ?: ""
+        if (saved.isNotBlank()) {
+            saved.split("\\n").forEach { line ->
+                val parts = line.split("|", limit = 2)
+                if (parts.size == 2 && parts[1].isNotBlank()) {
+                    messages.add(ChatMessage(parts[1], parts[0] == "me"))
+                }
+            }
+        }
+        if (messages.isEmpty()) {
+            messages.add(
+                ChatMessage(
+                    "Emergency chat ready. Messages are saved on this phone.",
+                    false
+                )
+            )
+        }
+    }
+
+    fun saveMessages() {
+        val saved = messages.joinToString("\\n") {
+            if (it.mine) "me|" + it.text else "local|" + it.text
+        }
+        prefs.edit().putString("messages", saved).apply()
+    }
+
+    Scaffold(
+        containerColor = Color(0xFF101214),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Emergency Chat")
+                        Text(
+                            "LOCAL • OFFLINE READY",
+                            color = Color(0xFF69F0AE),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                },
+                navigationIcon = {
+                    TextButton(onClick = onBack) {
+                        Text("BACK", color = Color(0xFF69F0AE))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF181B1F),
+                    titleContentColor = Color.White
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(12.dp)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF181B1F)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "💬 Local emergency messages\\nWi-Fi/Bluetooth networking can be added next.",
+                    color = Color.LightGray,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(messages) { message ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (message.mine) Arrangement.End else Arrangement.Start
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (message.mine) Color(0xFF245C43) else Color(0xFF24282D)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = message.text,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                OutlinedTextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Type a message…") },
+                    singleLine = false,
+                    maxLines = 3,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences
+                    )
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Button(
+                    onClick = {
+                        val clean = messageText.trim()
+                        if (clean.isNotEmpty()) {
+                            messages.add(ChatMessage(clean, true))
+                            messageText = ""
+                            saveMessages()
+                        }
+                    },
+                    enabled = messageText.trim().isNotEmpty()
+                ) {
+                    Text("SEND")
                 }
             }
         }
