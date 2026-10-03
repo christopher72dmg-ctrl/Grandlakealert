@@ -754,7 +754,7 @@ fun AlertTile(
                 modifier = Modifier.weight(1f)
             )
 
-            if (tile.url != null) {
+            if (tile.url != null || tile.title == "Emergency Chat") {
 
                 TextButton(
 
@@ -786,7 +786,7 @@ fun AlertTile(
 
                     Text(
 
-                        text = "OPEN SOURCE",
+                        text = if (tile.title == "Emergency Chat") "OPEN CHAT" else "OPEN SOURCE",
 
                         color = tile.accent,
 
