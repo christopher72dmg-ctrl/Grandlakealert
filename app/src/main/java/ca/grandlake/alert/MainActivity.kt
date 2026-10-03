@@ -69,7 +69,7 @@ fun GrandLakeAlertApp() {
     var policeNews by remember { mutableStateOf("Latest RCMP information") }
     var fireInfo by remember { mutableStateOf("Checking wildfire information...") }
 
-    // 1. Weather Data (Open-Meteo API)
+    // 1. Weather
     LaunchedEffect(Unit) {
         weather = try {
             withContext(Dispatchers.IO) {
@@ -85,11 +85,11 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // 2. Fuel Prices Data (Fixed Live NBEUB Destination Path)
+    // 2. Fuel Prices (Fixed active URL)
     LaunchedEffect(Unit) {
         fuelPrices = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://nbeub.ca").readText()
+                val html = URL("https://nbeub.ca/current-petroleum-prices").readText()
                 val text = html.replace(Regex("<[^>]*>"), " ").replace("&nbsp;", " ").replace(Regex("\\s+"), " ").trim()
                 val regular = Regex("Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])", RegexOption.IGNORE_CASE).find(text)
                 val diesel = Regex("Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])", RegexOption.IGNORE_CASE).find(text)
@@ -105,11 +105,11 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // 3. ASDW School District Alerts Data
+    // 3. School Alerts
     LaunchedEffect(Unit) {
         schoolAlerts = try {
             withContext(Dispatchers.IO) {
-                val html = URL("https://asdw.nbed.ca/news/alerts-dashboard/").readText()
+                val html = URL("https://nbed.ca").readText()
                 val text = html.replace(Regex("<[^>]*>"), " ").replace("&nbsp;", " ").replace(Regex("\\s+"), " ").trim()
                 val alert = Regex("(Bus\\s+#?3\\d{2}.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)", RegexOption.IGNORE_CASE).find(text)
                 alert?.groupValues?.get(1)?.trim() ?: "No active Minto / Zone 8 alerts"
@@ -119,7 +119,7 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // 4. RCMP New Brunswick News Data
+    // 4. Police News
     LaunchedEffect(Unit) {
         policeNews = try {
             withContext(Dispatchers.IO) {
@@ -132,7 +132,7 @@ fun GrandLakeAlertApp() {
         }
     }
 
-    // 5. Wildfires Incident Tracker (Fixed Spatial Directory Context Mapping Rule)
+    // 5. Fire Info
     LaunchedEffect(Unit) {
         fireInfo = try {
             withContext(Dispatchers.IO) {
@@ -140,18 +140,18 @@ fun GrandLakeAlertApp() {
                 val json = JSONObject(URL(url).readText())
                 val features = json.optJSONArray("features")
                 val count = features?.length() ?: 0
-                if (count == 0) "No wildfire locations reported" else "$count New Brunswick wildfire location${if (count == 1) "" else "s"}"
+                if (count == 0) "No wildfire locations reported" else "$count NB wildfire location${if (count == 1) "" else "s"}"
             }
         } catch (_: Exception) {
             "Wildfire information unavailable"
         }
     }
 
-    // Constructing data elements tracking onto Composable state values dynamically
+    // Consolidated dynamic layout items mapping onto tracked mutable UI state hooks
     val tiles = listOf(
         Tile(title = "Weather", icon = "🌦️", subtitle = weather, url = null, accent = Color(0xFF42A5F5)),
-        Tile(title = "Minto School", icon = "🏫", subtitle = schoolAlerts, url = "https://asdw.nbed.ca/news/alerts-dashboard/", accent = Color(0xFFFFB74D)),
-        Tile(title = "Fuel Prices", icon = "⛽", subtitle = fuelPrices, url = "https://nbeub.ca", accent = Color(0xFF81C784)),
+        Tile(title = "Minto School", icon = "🏫", subtitle = schoolAlerts, url = "https://nbed.ca", accent = Color(0xFFFFB74D)),
+        Tile(title = "Fuel Prices", icon = "⛽", subtitle = fuelPrices, url = "https://nbeub.ca/current-petroleum-prices", accent = Color(0xFF81C784)),
         Tile(title = "RCMP News", icon = "🚨", subtitle = policeNews, url = "https://rcmp.ca", accent = Color(0xFFE57373)),
         Tile(title = "Wildfires", icon = "🔥", subtitle = fireInfo, url = null, accent = Color(0xFFFF8A65))
     )
@@ -206,4 +206,3 @@ fun GrandLakeAlertApp() {
             }
         }
     }
-}
