@@ -2,7 +2,7 @@ name: Build Grand Lake Alert
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "chat-feature" ]
   workflow_dispatch:
 
 jobs:
