@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -814,6 +816,7 @@ fun LocalEmergencyChat(
     val context = LocalContext.current
     val messages = remember { mutableStateListOf<ChatMessage>() }
     var messageText by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
 
     val prefs = remember {
         context.getSharedPreferences(
@@ -839,6 +842,12 @@ fun LocalEmergencyChat(
                     false
                 )
             )
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
@@ -898,12 +907,13 @@ fun LocalEmergencyChat(
             Spacer(modifier = Modifier.height(10.dp))
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(messages) { message ->
+                lazyItems(messages) { message ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = if (message.mine) Arrangement.End else Arrangement.Start
