@@ -804,44 +804,95 @@ fun AlertTile(
 
 
 private data class ChatMessage(
+    val sender: String,
     val text: String,
     val mine: Boolean
 )
 
+private const val CHAT_TOPIC = "grandlakealert-emergency-chat"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocalEmergencyChat(
-    onBack: () -> Unit
-) {
+fun LocalEmergencyChat(onBack: () -> Unit) {
     val context = LocalContext.current
     val messages = remember { mutableStateListOf<ChatMessage>() }
     var messageText by remember { mutableStateOf("") }
+    var userName by remember { mutableStateOf("Guest") }
+    var online by remember { mutableStateOf(false) }
+    var statusText by remember { mutableStateOf("Connecting…") }
+    var lastMessageId by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
     val prefs = remember {
-        context.getSharedPreferences(
-            "grand_lake_chat",
-            android.content.Context.MODE_PRIVATE
-        )
+        context.getSharedPreferences("grand_lake_chat", android.content.Context.MODE_PRIVATE)
     }
 
     LaunchedEffect(Unit) {
+        userName = prefs.getString("username", "Guest") ?: "Guest"
         val saved = prefs.getString("messages", "") ?: ""
         if (saved.isNotBlank()) {
             saved.split("\\n").forEach { line ->
-                val parts = line.split("|", limit = 2)
-                if (parts.size == 2 && parts[1].isNotBlank()) {
-                    messages.add(ChatMessage(parts[1], parts[0] == "me"))
+                val parts = line.split("|", limit = 3)
+                if (parts.size == 3 && parts[2].isNotBlank()) {
+                    messages.add(ChatMessage(parts[0], parts[2], parts[1] == "me"))
                 }
             }
         }
         if (messages.isEmpty()) {
             messages.add(
                 ChatMessage(
-                    "Emergency chat ready. Messages are saved on this phone.",
+                    "Grand Lake Alert",
+                    "Online emergency chat ready. This is a public test room.",
                     false
                 )
             )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val sincePart = if (lastMessageId.isNotBlank()) "&since=" + lastMessageId else ""
+                    val url = URL("https://ntfy.sh/" + CHAT_TOPIC + "/json?poll=1" + sincePart)
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    connection.disconnect()
+                    response
+                }
+
+                if (result.isNotBlank()) {
+                    result.lines().forEach { line ->
+                        if (line.isBlank()) return@forEach
+                        try {
+                            val json = JSONObject(line)
+                            if (json.optString("event") != "message") return@forEach
+                            val id = json.optString("id")
+                            val sender = json.optString("title").ifBlank { "Online user" }
+                            val body = json.optString("message")
+                            if (id.isNotBlank() && body.isNotBlank() && id != lastMessageId) {
+                                val mine = sender == userName
+                                if (!messages.any { it.text == body && it.sender == sender && it.mine == mine }) {
+                                    messages.add(ChatMessage(sender, body, mine))
+                                }
+                                lastMessageId = id
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+
+                online = true
+                statusText = "ONLINE • shared room"
+            } catch (_: Exception) {
+                online = false
+                statusText = "OFFLINE • trying again…"
+            }
+
+            kotlinx.coroutines.delay(4000)
         }
     }
 
@@ -849,11 +900,8 @@ fun LocalEmergencyChat(
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
-    }
-
-    fun saveMessages() {
         val saved = messages.joinToString("\\n") {
-            if (it.mine) "me|" + it.text else "local|" + it.text
+            it.sender + "|" + if (it.mine) "me" else "online" + "|" + it.text.replace("\\n", " ")
         }
         prefs.edit().putString("messages", saved).apply()
     }
@@ -866,8 +914,8 @@ fun LocalEmergencyChat(
                     Column {
                         Text("Emergency Chat")
                         Text(
-                            "LOCAL • OFFLINE READY",
-                            color = Color(0xFF69F0AE),
+                            statusText,
+                            color = if (online) Color(0xFF69F0AE) else Color(0xFFFFB74D),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -891,26 +939,41 @@ fun LocalEmergencyChat(
                 .padding(12.dp)
         ) {
             Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF181B1F)
-                ),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "💬 Local emergency messages\\nWi-Fi/Bluetooth networking can be added next.",
-                    color = Color.LightGray,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(12.dp)
-                )
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        "💬 ONLINE TEST ROOM",
+                        color = Color(0xFF69F0AE),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        "Anyone using this test room can see messages. Do not post private information.",
+                        color = Color.LightGray,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    OutlinedTextField(
+                        value = userName,
+                        onValueChange = {
+                            userName = it.take(20)
+                            prefs.edit().putString("username", userName).apply()
+                        },
+                        label = { Text("Your name") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 lazyItems(messages) { message ->
@@ -924,11 +987,18 @@ fun LocalEmergencyChat(
                             ),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text(
-                                text = message.text,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                            )
+                            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                Text(
+                                    message.sender,
+                                    color = Color(0xFF69F0AE),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Text(
+                                    message.text,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(top = 3.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -955,10 +1025,33 @@ fun LocalEmergencyChat(
                 Button(
                     onClick = {
                         val clean = messageText.trim()
+                        val sender = userName.trim().ifBlank { "Guest" }
+
                         if (clean.isNotEmpty()) {
-                            messages.add(ChatMessage(clean, true))
+                            messages.add(ChatMessage(sender, clean, true))
                             messageText = ""
-                            saveMessages()
+
+                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                                try {
+                                    val connection = URL("https://ntfy.sh/" + CHAT_TOPIC)
+                                        .openConnection() as java.net.HttpURLConnection
+                                    connection.requestMethod = "POST"
+                                    connection.doOutput = true
+                                    connection.connectTimeout = 8000
+                                    connection.readTimeout = 8000
+                                    connection.setRequestProperty("Title", sender)
+                                    connection.setRequestProperty(
+                                        "Content-Type",
+                                        "text/plain; charset=utf-8"
+                                    )
+                                    connection.outputStream.use {
+                                        it.write(clean.toByteArray(Charsets.UTF_8))
+                                    }
+                                    connection.inputStream.close()
+                                    connection.disconnect()
+                                } catch (_: Exception) {
+                                }
+                            }
                         }
                     },
                     enabled = messageText.trim().isNotEmpty()
