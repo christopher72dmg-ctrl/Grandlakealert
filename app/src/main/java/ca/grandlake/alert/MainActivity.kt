@@ -1031,7 +1031,7 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                             messages.add(ChatMessage(sender, clean, true))
                             messageText = ""
 
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            withContext(Dispatchers.IO) {
                                 try {
                                     val connection = URL("https://ntfy.sh/" + CHAT_TOPIC)
                                         .openConnection() as java.net.HttpURLConnection
