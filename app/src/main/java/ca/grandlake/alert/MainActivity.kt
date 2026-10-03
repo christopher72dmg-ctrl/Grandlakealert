@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -61,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
@@ -822,6 +824,7 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
     var statusText by remember { mutableStateOf("Connecting…") }
     var lastMessageId by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     val prefs = remember {
         context.getSharedPreferences("grand_lake_chat", android.content.Context.MODE_PRIVATE)
@@ -1031,25 +1034,27 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                             messages.add(ChatMessage(sender, clean, true))
                             messageText = ""
 
-                            withContext(Dispatchers.IO) {
-                                try {
-                                    val connection = URL("https://ntfy.sh/" + CHAT_TOPIC)
-                                        .openConnection() as java.net.HttpURLConnection
-                                    connection.requestMethod = "POST"
-                                    connection.doOutput = true
-                                    connection.connectTimeout = 8000
-                                    connection.readTimeout = 8000
-                                    connection.setRequestProperty("Title", sender)
-                                    connection.setRequestProperty(
-                                        "Content-Type",
-                                        "text/plain; charset=utf-8"
-                                    )
-                                    connection.outputStream.use {
-                                        it.write(clean.toByteArray(Charsets.UTF_8))
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    try {
+                                        val connection = URL("https://ntfy.sh/" + CHAT_TOPIC)
+                                            .openConnection() as java.net.HttpURLConnection
+                                        connection.requestMethod = "POST"
+                                        connection.doOutput = true
+                                        connection.connectTimeout = 8000
+                                        connection.readTimeout = 8000
+                                        connection.setRequestProperty("Title", sender)
+                                        connection.setRequestProperty(
+                                            "Content-Type",
+                                            "text/plain; charset=utf-8"
+                                        )
+                                        connection.outputStream.use {
+                                            it.write(clean.toByteArray(Charsets.UTF_8))
+                                        }
+                                        connection.inputStream.close()
+                                        connection.disconnect()
+                                    } catch (_: Exception) {
                                     }
-                                    connection.inputStream.close()
-                                    connection.disconnect()
-                                } catch (_: Exception) {
                                 }
                             }
                         }
