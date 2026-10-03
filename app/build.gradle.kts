@@ -32,5 +32,5 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.7.8")
     implementation("androidx.compose.material3:material3:1.3.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    implementation("com.google.android.gms:play-services-nearby:19.5.0")
+    implementation("com.google.android.gms:play-services-nearby:18.9.0")
 }
