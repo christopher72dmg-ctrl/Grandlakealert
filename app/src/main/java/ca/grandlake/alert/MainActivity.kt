@@ -3,7 +3,6 @@ package ca.grandlake.alert
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -129,8 +128,10 @@ LaunchedEffect(Unit) {
             )
 
             val current = json.getJSONObject("current")
+
             val temperature =
                 current.optDouble("temperature_2m", 0.0)
+
             val wind =
                 current.optDouble("wind_speed_10m", 0.0)
 
@@ -168,8 +169,11 @@ LaunchedEffect(Unit) {
 
             if (regularMatch != null && dieselMatch != null) {
 
-                val regular = regularMatch.groupValues[1]
-                val diesel = dieselMatch.groupValues[1]
+                val regular =
+                    regularMatch.groupValues[1]
+
+                val diesel =
+                    dieselMatch.groupValues[1]
 
                 "Regular: $regular¢/L\nDiesel: $diesel¢/L"
 
@@ -539,38 +543,37 @@ MaterialTheme(
                     Arrangement.spacedBy(12.dp),
 
                 verticalArrangement =
-                    Arrangement.spacedBy(12.dp),
+                    Arrangement.spacedBy(12.dp)
 
-                content = {
+            ) {
 
-                    items(tiles) { tile ->
+                items(tiles) { tile ->
 
-                        AnimatedVisibility(
+                    AnimatedVisibility(
 
-                            visible = showTiles,
+                        visible = showTiles,
 
-                            enter =
-                                fadeIn(
+                        enter =
+                            fadeIn(
+                                animationSpec =
+                                    tween(500)
+                            ) +
+                                slideInVertically(
+                                    initialOffsetY = {
+                                        80
+                                    },
                                     animationSpec =
                                         tween(500)
-                                ) +
-                                    slideInVertically(
-                                        initialOffsetY = {
-                                            80
-                                        },
-                                        animationSpec =
-                                            tween(500)
-                                    )
-                        ) {
+                                )
+                    ) {
 
-                            AlertTile(
-                                tile = tile,
-                                context = context
-                            )
-                        }
+                        AlertTile(
+                            tile = tile,
+                            context = context
+                        )
                     }
                 }
-            )
+            }
         }
     }
 }
