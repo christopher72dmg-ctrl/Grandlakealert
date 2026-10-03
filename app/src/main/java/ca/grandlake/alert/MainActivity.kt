@@ -5,15 +5,6 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,15 +38,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
 import java.net.URL
 
 data class Tile(
@@ -65,8 +53,10 @@ val subtitle: String,
 val url: String?,
 val accent: Color
 )
+
 class MainActivity : ComponentActivity() {
 
+```
 override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -74,6 +64,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
         GrandLakeAlertApp()
     }
 }
+```
 
 }
 
@@ -81,259 +72,202 @@ override fun onCreate(savedInstanceState: Bundle?) {
 @Composable
 fun GrandLakeAlertApp() {
 
+```
 val context = LocalContext.current
 
 var weather by remember {
-    mutableStateOf("Loading current weather…")
+    mutableStateOf("Loading weather...")
 }
 
 var fuelPrices by remember {
-    mutableStateOf("Loading current prices…")
+    mutableStateOf("Loading prices...")
 }
 
 var schoolAlerts by remember {
-    mutableStateOf("Checking school alerts…")
+    mutableStateOf("Checking school alerts...")
 }
 
 var policeNews by remember {
-    mutableStateOf("Checking latest RCMP news…")
-}
-
-var policeUrl by remember {
-    mutableStateOf("https://rcmp.ca/en/nb/news")
+    mutableStateOf("Latest RCMP information")
 }
 
 var fireInfo by remember {
-    mutableStateOf("Checking NB wildfire information…")
-}
-
-var showTiles by remember {
-    mutableStateOf(false)
+    mutableStateOf("Checking wildfire information...")
 }
 
 LaunchedEffect(Unit) {
-    weather = try {
-        withContext(Dispatchers.IO) {
-            val json = JSONObject(
-                URL(
-                    "https://api.open-meteo.com/v1/forecast" +
-                        "?latitude=46.0" +
-                        "&longitude=-66.0" +
-                        "&current=temperature_2m,wind_speed_10m"
-                ).readText()
-            )
 
-            val current = json.getJSONObject("current")
+    weather = try {
+
+        withContext(Dispatchers.IO) {
+
+            val url =
+                "https://api.open-meteo.com/v1/forecast" +
+                "?latitude=46.0" +
+                "&longitude=-66.0" +
+                "&current=temperature_2m,wind_speed_10m"
+
+            val json =
+                JSONObject(URL(url).readText())
+
+            val current =
+                json.getJSONObject("current")
 
             val temperature =
-                current.optDouble("temperature_2m", 0.0)
+                current.optDouble(
+                    "temperature_2m",
+                    0.0
+                )
 
             val wind =
-                current.optDouble("wind_speed_10m", 0.0)
+                current.optDouble(
+                    "wind_speed_10m",
+                    0.0
+                )
 
-            "${temperature.toInt()}°C • Wind ${wind.toInt()} km/h"
+            "${temperature.toInt()}°C  •  Wind ${wind.toInt()} km/h"
         }
+
     } catch (_: Exception) {
+
         "Weather temporarily unavailable"
     }
 }
 
 LaunchedEffect(Unit) {
+
     fuelPrices = try {
+
         withContext(Dispatchers.IO) {
 
             val html =
-                URL("https://nbeub.ca/current-petroleum-prices-2")
-                    .readText()
+                URL(
+                    "https://nbeub.ca/current-petroleum-prices-2"
+                ).readText()
 
-            val pageText = html
-                .replace(Regex("<[^>]*>"), " ")
-                .replace("&nbsp;", " ")
-                .replace("&amp;", "&")
-                .replace(Regex("\\s+"), " ")
-                .trim()
+            val text =
+                html
+                    .replace(
+                        Regex("<[^>]*>"),
+                        " "
+                    )
+                    .replace(
+                        "&nbsp;",
+                        " "
+                    )
+                    .replace(
+                        Regex("\\s+"),
+                        " "
+                    )
+                    .trim()
 
-            val regularMatch = Regex(
-                "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])",
-                RegexOption.IGNORE_CASE
-            ).find(pageText)
+            val regular =
+                Regex(
+                    "Regular Gasoline\\s+Self-serve\\s+([0-9]+\\.[0-9])",
+                    RegexOption.IGNORE_CASE
+                ).find(text)
 
-            val dieselMatch = Regex(
-                "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])",
-                RegexOption.IGNORE_CASE
-            ).find(pageText)
+            val diesel =
+                Regex(
+                    "Ultra-low Sulphur Diesel\\s+Self-serve\\s+([0-9]+\\.[0-9])",
+                    RegexOption.IGNORE_CASE
+                ).find(text)
 
-            if (regularMatch != null && dieselMatch != null) {
+            if (
+                regular != null &&
+                diesel != null
+            ) {
 
-                val regular =
-                    regularMatch.groupValues[1]
-
-                val diesel =
-                    dieselMatch.groupValues[1]
-
-                "Regular: $regular¢/L\nDiesel: $diesel¢/L"
+                "Regular: ${regular.groupValues[1]}¢/L\n" +
+                "Diesel: ${diesel.groupValues[1]}¢/L"
 
             } else {
+
                 "Fuel prices unavailable"
             }
         }
+
     } catch (_: Exception) {
+
         "Fuel prices unavailable"
     }
 }
 
 LaunchedEffect(Unit) {
+
     schoolAlerts = try {
+
         withContext(Dispatchers.IO) {
 
             val html =
-                URL("https://asdw.nbed.ca/news/alerts-dashboard/")
-                    .readText()
+                URL(
+                    "https://asdw.nbed.ca/news/alerts-dashboard/"
+                ).readText()
 
-            val pageText = html
-                .replace(Regex("<[^>]*>"), " ")
-                .replace("&nbsp;", " ")
-                .replace(Regex("\\s+"), " ")
-                .trim()
+            val text =
+                html
+                    .replace(
+                        Regex("<[^>]*>"),
+                        " "
+                    )
+                    .replace(
+                        "&nbsp;",
+                        " "
+                    )
+                    .replace(
+                        Regex("\\s+"),
+                        " "
+                    )
+                    .trim()
 
-            val alertMatch = Regex(
-                "(Bus\\s+#?3\\d{2}\\s+.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
-                RegexOption.IGNORE_CASE
-            ).find(pageText)
+            val alert =
+                Regex(
+                    "(Bus\\s+#?3\\d{2}.*?running.*?late|Delay.*?Zone 8|Closure.*?Zone 8)",
+                    RegexOption.IGNORE_CASE
+                ).find(text)
 
-            alertMatch?.groupValues?.get(1)?.trim()
-                ?: "✅ No active Minto / Zone 8 alerts"
+            alert?.groupValues?.get(1)?.trim()
+                ?: "No active Minto / Zone 8 alerts"
         }
+
     } catch (_: Exception) {
+
         "School alerts unavailable"
     }
 }
 
 LaunchedEffect(Unit) {
 
-    try {
+    policeNews = try {
 
-        val result = withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
 
-            val feedUrl =
-                "https://rcmp.ca/en/feed-flux/news-nouvelles/division/j"
+            val html =
+                URL(
+                    "https://rcmp.ca/en/nb/news"
+                ).readText()
 
-            val parserFactory =
-                XmlPullParserFactory.newInstance()
+            val text =
+                html
+                    .replace(
+                        Regex("<[^>]*>"),
+                        " "
+                    )
+                    .replace(
+                        Regex("\\s+"),
+                        " "
+                    )
+                    .trim()
 
-            val parser =
-                parserFactory.newPullParser()
+            val words =
+                text.take(180)
 
-            parser.setInput(
-                URL(feedUrl).openStream(),
-                "UTF-8"
-            )
-
-            var eventType = parser.eventType
-            var insideEntry = false
-            var insideTitle = false
-            var latestTitle = ""
-            var latestUrl = ""
-
-            while (
-                eventType != XmlPullParser.END_DOCUMENT
-            ) {
-
-                when (eventType) {
-
-                    XmlPullParser.START_TAG -> {
-
-                        when (parser.name.lowercase()) {
-
-                            "entry" -> {
-                                insideEntry = true
-                            }
-
-                            "title" -> {
-                                if (insideEntry) {
-                                    insideTitle = true
-                                }
-                            }
-
-                            "link" -> {
-
-                                if (insideEntry) {
-
-                                    val href =
-                                        parser.getAttributeValue(
-                                            null,
-                                            "href"
-                                        )
-
-                                    if (
-                                        !href.isNullOrBlank() &&
-                                        latestUrl.isBlank()
-                                    ) {
-                                        latestUrl = href
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    XmlPullParser.TEXT -> {
-
-                        if (
-                            insideEntry &&
-                            insideTitle
-                        ) {
-                            latestTitle +=
-                                parser.text.trim()
-                        }
-                    }
-
-                    XmlPullParser.END_TAG -> {
-
-                        when (parser.name.lowercase()) {
-
-                            "title" -> {
-                                insideTitle = false
-                            }
-
-                            "entry" -> {
-
-                                if (insideEntry) {
-                                    insideEntry = false
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
-
-                eventType = parser.next()
-            }
-
-            Pair(
-                latestTitle.trim(),
-                latestUrl.trim()
-            )
-        }
-
-        if (result.first.isNotBlank()) {
-
-            policeNews =
-                "Latest: ${result.first}"
-
-            if (result.second.isNotBlank()) {
-                policeUrl = result.second
-            }
-
-        } else {
-
-            policeNews =
-                "Latest RCMP news unavailable"
+            "RCMP NB: $words"
         }
 
     } catch (_: Exception) {
 
-        policeNews =
-            "RCMP news temporarily unavailable"
+        "Latest RCMP information unavailable"
     }
 }
 
@@ -343,19 +277,19 @@ LaunchedEffect(Unit) {
 
         withContext(Dispatchers.IO) {
 
-            val fireUrl =
+            val url =
                 "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
-                    "New_Brunswick_Fires/" +
-                    "New_Brunswick_Fire_Locations/" +
-                    "FeatureServer/0/query" +
-                    "?where=1%3D1" +
-                    "&outFields=FIELD_FIRE_NAME" +
-                    "&returnGeometry=false" +
-                    "&f=json"
+                "New_Brunswick_Fires/" +
+                "New_Brunswick_Fire_Locations/" +
+                "FeatureServer/0/query" +
+                "?where=1%3D1" +
+                "&outFields=FIELD_FIRE_NAME" +
+                "&returnGeometry=false" +
+                "&f=json"
 
             val json =
                 JSONObject(
-                    URL(fireUrl).readText()
+                    URL(url).readText()
                 )
 
             val features =
@@ -366,12 +300,12 @@ LaunchedEffect(Unit) {
 
             if (count == 0) {
 
-                "✅ No wildfire locations reported"
+                "No wildfire locations reported"
 
             } else {
 
-                "🔥 $count NB wildfire location" +
-                    if (count == 1) "" else "s"
+                "$count NB wildfire location" +
+                if (count == 1) "" else "s"
             }
         }
 
@@ -379,13 +313,6 @@ LaunchedEffect(Unit) {
 
         "Wildfire information unavailable"
     }
-}
-
-LaunchedEffect(Unit) {
-
-    kotlinx.coroutines.delay(250)
-
-    showTiles = true
 }
 
 val tiles = listOf(
@@ -407,7 +334,7 @@ val tiles = listOf(
     ),
 
     Tile(
-        title = "Fuel",
+        title = "Fuel Prices",
         icon = "⛽",
         subtitle = fuelPrices,
         url = "https://nbeub.ca/current-petroleum-prices-2",
@@ -426,7 +353,7 @@ val tiles = listOf(
         title = "Police",
         icon = "🚓",
         subtitle = policeNews,
-        url = policeUrl,
+        url = "https://rcmp.ca/en/nb/news",
         accent = Color(0xFFEF5350)
     ),
 
@@ -439,23 +366,24 @@ val tiles = listOf(
     )
 )
 
-val darkColors = darkColorScheme(
-    primary = Color(0xFF69F0AE),
-    secondary = Color(0xFF80CBC4),
-    background = Color(0xFF101214),
-    surface = Color(0xFF181B1F),
-    surfaceVariant = Color(0xFF24282D),
-    onBackground = Color.White,
-    onSurface = Color.White
-)
+val colors =
+    darkColorScheme(
+        primary = Color(0xFF69F0AE),
+        secondary = Color(0xFF80CBC4),
+        background = Color(0xFF101214),
+        surface = Color(0xFF181B1F),
+        onBackground = Color.White,
+        onSurface = Color.White
+    )
 
 MaterialTheme(
-    colorScheme = darkColors
+    colorScheme = colors
 ) {
 
     Scaffold(
 
-        containerColor = Color(0xFF101214),
+        containerColor =
+            Color(0xFF101214),
 
         topBar = {
 
@@ -467,73 +395,106 @@ MaterialTheme(
 
                         Text(
                             text = "Grand Lake Alert",
-                            style = MaterialTheme.typography.titleLarge
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleLarge
                         )
 
                         Text(
                             text = "LOCAL INFORMATION",
-                            color = Color(0xFF69F0AE),
-                            style = MaterialTheme.typography.labelSmall
+                            color =
+                                Color(0xFF69F0AE),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelSmall
                         )
                     }
                 },
 
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF181B1F),
-                    titleContentColor = Color.White
-                )
+                colors =
+                    TopAppBarDefaults
+                        .topAppBarColors(
+                            containerColor =
+                                Color(0xFF181B1F),
+                            titleContentColor =
+                                Color.White
+                        )
             )
         }
 
-    ) { innerPadding ->
+    ) { paddingValues ->
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 12.dp)
+
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(12.dp)
         ) {
 
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
 
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier =
+                        Modifier.weight(1f)
                 ) {
 
                     Text(
-                        text = "Grand Lake, NB",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        text =
+                            "Grand Lake, NB",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium,
+                        color =
+                            Color.White
                     )
 
                     Text(
-                        text = "Live local information",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.LightGray
+                        text =
+                            "Live local information",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            Color.LightGray
                     )
                 }
 
-                StatusIndicator()
+                Text(
+                    text = "● LIVE",
+                    color =
+                        Color(0xFF69F0AE),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium
+                )
             }
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier =
+                    Modifier.height(12.dp)
             )
 
             LazyVerticalGrid(
 
-                columns = GridCells.Fixed(2),
+                columns =
+                    GridCells.Fixed(2),
 
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier.fillMaxSize(),
 
                 horizontalArrangement =
                     Arrangement.spacedBy(12.dp),
@@ -545,94 +506,14 @@ MaterialTheme(
 
                 items(tiles) { tile ->
 
-                    AnimatedVisibility(
-
-                        visible = showTiles,
-
-                        enter =
-                            fadeIn(
-                                animationSpec =
-                                    tween(500)
-                            ) +
-                                slideInVertically(
-                                    initialOffsetY = {
-                                        80
-                                    },
-                                    animationSpec =
-                                        tween(500)
-                                )
-                    ) {
-
-                        AlertTile(
-                            tile = tile,
-                            context = context
-                        )
-                    }
+                    AlertTile(
+                        tile = tile,
+                        context = context
+                    )
                 }
             }
         }
     }
-}
-```
-
-}
-
-@Composable
-fun StatusIndicator() {
-
-```
-val infiniteTransition =
-    rememberInfiniteTransition(
-        label = "status"
-    )
-
-val alpha by
-    infiniteTransition.animateFloat(
-
-        initialValue = 0.35f,
-
-        targetValue = 1f,
-
-        animationSpec =
-            infiniteRepeatable(
-
-                animation =
-                    tween(
-                        900,
-                        easing = LinearEasing
-                    ),
-
-                repeatMode =
-                    RepeatMode.Reverse
-            ),
-
-        label = "statusAlpha"
-    )
-
-Row(
-    verticalAlignment =
-        Alignment.CenterVertically
-) {
-
-    Box(
-        modifier = Modifier
-            .size(10.dp)
-            .alpha(alpha)
-            .background(
-                Color(0xFF69F0AE),
-                RoundedCornerShape(50)
-            )
-    )
-
-    Spacer(
-        modifier = Modifier.size(6.dp)
-    )
-
-    Text(
-        text = "LIVE",
-        color = Color(0xFF69F0AE),
-        style = MaterialTheme.typography.labelSmall
-    )
 }
 ```
 
@@ -647,9 +528,10 @@ context: android.content.Context
 ```
 Card(
 
-    modifier = Modifier
-        .fillMaxWidth()
-        .height(235.dp),
+    modifier =
+        Modifier
+            .fillMaxWidth()
+            .height(235.dp),
 
     shape =
         RoundedCornerShape(20.dp),
@@ -664,69 +546,89 @@ Card(
         CardDefaults.cardElevation(
             defaultElevation = 4.dp
         )
+
 ) {
 
     Column(
 
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(15.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(15.dp)
+
     ) {
 
         Box(
 
-            modifier = Modifier
-                .size(48.dp)
-                .background(
-                    tile.accent.copy(alpha = 0.16f),
-                    RoundedCornerShape(14.dp)
-                ),
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .background(
+                        tile.accent.copy(
+                            alpha = 0.16f
+                        ),
+                        RoundedCornerShape(14.dp)
+                    ),
 
             contentAlignment =
                 Alignment.Center
+
         ) {
 
             Text(
                 text = tile.icon,
                 style =
-                    MaterialTheme.typography.titleLarge
+                    MaterialTheme
+                        .typography
+                        .titleLarge
             )
         }
 
         Spacer(
-            modifier = Modifier.height(10.dp)
+            modifier =
+                Modifier.height(10.dp)
         )
 
         Text(
 
-            text = tile.title,
+            text =
+                tile.title,
 
             style =
-                MaterialTheme.typography.titleMedium,
+                MaterialTheme
+                    .typography
+                    .titleMedium,
 
-            color = tile.accent,
+            color =
+                tile.accent,
 
             maxLines = 2
         )
 
         Spacer(
-            modifier = Modifier.height(6.dp)
+            modifier =
+                Modifier.height(6.dp)
         )
 
         Text(
 
-            text = tile.subtitle,
+            text =
+                tile.subtitle,
 
             style =
-                MaterialTheme.typography.bodySmall,
+                MaterialTheme
+                    .typography
+                    .bodySmall,
 
-            color = Color.LightGray,
+            color =
+                Color.LightGray,
 
             maxLines = 5
         )
 
         Spacer(
-            modifier = Modifier.weight(1f)
+            modifier =
+                Modifier.weight(1f)
         )
 
         if (tile.url != null) {
@@ -749,20 +651,18 @@ Card(
                     }
                 },
 
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+
             ) {
 
                 Text(
-
-                    text = "OPEN SOURCE",
-
-                    color = tile.accent,
-
-                    maxLines = 1,
-
-                    softWrap = false
+                    text =
+                        "OPEN SOURCE",
+                    color =
+                        tile.accent
                 )
             }
         }
