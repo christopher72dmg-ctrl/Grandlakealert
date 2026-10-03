@@ -25,6 +25,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -37,22 +40,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
@@ -109,6 +119,10 @@ fun GrandLakeAlertApp() {
     }
 
     var showTiles by remember {
+        mutableStateOf(false)
+    }
+
+    var showChat by remember {
         mutableStateOf(false)
     }
 
@@ -440,6 +454,14 @@ fun GrandLakeAlertApp() {
             subtitle = "Live NB traffic events, accidents, closures & construction",
             url = "https://511.gnb.ca/list/events/traffic",
             accent = Color(0xFFAB47BC)
+        ),
+
+        Tile(
+            title = "Emergency Chat",
+            icon = "💬",
+            subtitle = "Local chat • works without internet",
+            url = null,
+            accent = Color(0xFF69F0AE)
         )
     )
 
@@ -457,7 +479,12 @@ fun GrandLakeAlertApp() {
         colorScheme = darkColors
     ) {
 
-        Scaffold(
+        if (showChat) {
+            LocalEmergencyChat(
+                onBack = { showChat = false }
+            )
+        } else {
+            Scaffold(
 
             containerColor = Color(0xFF101214),
 
@@ -569,13 +596,15 @@ fun GrandLakeAlertApp() {
 
                                 AlertTile(
                                     tile = tile,
-                                    context = context
+                                    context = context,
+                                    onChatClick = { showChat = true }
                                 )
                             }
                         }
                     }
                 )
             }
+        }
         }
     }
 }
@@ -641,7 +670,8 @@ fun StatusIndicator() {
 @Composable
 fun AlertTile(
     tile: Tile,
-    context: android.content.Context
+    context: android.content.Context,
+    onChatClick: () -> Unit
 ) {
 
     Card(
@@ -728,11 +758,16 @@ fun AlertTile(
                 modifier = Modifier.weight(1f)
             )
 
-            if (tile.url != null) {
+            if (tile.url != null || tile.title == "Emergency Chat") {
 
                 TextButton(
 
                     onClick = {
+
+                        if (tile.title == "Emergency Chat") {
+                            onChatClick()
+                            return@TextButton
+                        }
 
                         try {
 
@@ -755,7 +790,7 @@ fun AlertTile(
 
                     Text(
 
-                        text = "OPEN SOURCE",
+                        text = if (tile.title == "Emergency Chat") "OPEN CHAT" else "OPEN SOURCE",
 
                         color = tile.accent,
 
@@ -763,6 +798,270 @@ fun AlertTile(
 
                         softWrap = false
                     )
+                }
+            }
+        }
+    }
+}
+
+
+private data class ChatMessage(
+    val sender: String,
+    val text: String,
+    val mine: Boolean
+)
+
+private const val CHAT_TOPIC = "grandlakealert-emergency-chat"
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalEmergencyChat(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val messages = remember { mutableStateListOf<ChatMessage>() }
+    var messageText by remember { mutableStateOf("") }
+    var userName by remember { mutableStateOf("Guest") }
+    var online by remember { mutableStateOf(false) }
+    var statusText by remember { mutableStateOf("Connecting…") }
+    var lastMessageId by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    val prefs = remember {
+        context.getSharedPreferences("grand_lake_chat", android.content.Context.MODE_PRIVATE)
+    }
+
+    LaunchedEffect(Unit) {
+        userName = prefs.getString("username", "Guest") ?: "Guest"
+        val saved = prefs.getString("messages", "") ?: ""
+        if (saved.isNotBlank()) {
+            saved.split("\\n").forEach { line ->
+                val parts = line.split("|", limit = 3)
+                if (parts.size == 3 && parts[2].isNotBlank()) {
+                    messages.add(ChatMessage(parts[0], parts[2], parts[1] == "me"))
+                }
+            }
+        }
+        if (messages.isEmpty()) {
+            messages.add(
+                ChatMessage(
+                    "Grand Lake Alert",
+                    "Online emergency chat ready. This is a public test room.",
+                    false
+                )
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val sincePart = if (lastMessageId.isNotBlank()) "&since=" + lastMessageId else ""
+                    val url = URL("https://ntfy.sh/" + CHAT_TOPIC + "/json?poll=1" + sincePart)
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    connection.disconnect()
+                    response
+                }
+
+                if (result.isNotBlank()) {
+                    result.lines().forEach { line ->
+                        if (line.isBlank()) return@forEach
+                        try {
+                            val json = JSONObject(line)
+                            if (json.optString("event") != "message") return@forEach
+                            val id = json.optString("id")
+                            val sender = json.optString("title").ifBlank { "Online user" }
+                            val body = json.optString("message")
+                            if (id.isNotBlank() && body.isNotBlank() && id != lastMessageId) {
+                                val mine = sender == userName
+                                if (!messages.any { it.text == body && it.sender == sender && it.mine == mine }) {
+                                    messages.add(ChatMessage(sender, body, mine))
+                                }
+                                lastMessageId = id
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+
+                online = true
+                statusText = "ONLINE • shared room"
+            } catch (_: Exception) {
+                online = false
+                statusText = "OFFLINE • trying again…"
+            }
+
+            kotlinx.coroutines.delay(4000)
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+        val saved = messages.joinToString("\\n") {
+            it.sender + "|" + if (it.mine) "me" else "online" + "|" + it.text.replace("\\n", " ")
+        }
+        prefs.edit().putString("messages", saved).apply()
+    }
+
+    Scaffold(
+        containerColor = Color(0xFF101214),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Emergency Chat")
+                        Text(
+                            statusText,
+                            color = if (online) Color(0xFF69F0AE) else Color(0xFFFFB74D),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                },
+                navigationIcon = {
+                    TextButton(onClick = onBack) {
+                        Text("BACK", color = Color(0xFF69F0AE))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF181B1F),
+                    titleContentColor = Color.White
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(12.dp)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        "💬 ONLINE TEST ROOM",
+                        color = Color(0xFF69F0AE),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        "Anyone using this test room can see messages. Do not post private information.",
+                        color = Color.LightGray,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    OutlinedTextField(
+                        value = userName,
+                        onValueChange = {
+                            userName = it.take(20)
+                            prefs.edit().putString("username", userName).apply()
+                        },
+                        label = { Text("Your name") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                lazyItems(messages) { message ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (message.mine) Arrangement.End else Arrangement.Start
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (message.mine) Color(0xFF245C43) else Color(0xFF24282D)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                Text(
+                                    message.sender,
+                                    color = Color(0xFF69F0AE),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Text(
+                                    message.text,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(top = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                OutlinedTextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Type a message…") },
+                    singleLine = false,
+                    maxLines = 3,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences
+                    )
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Button(
+                    onClick = {
+                        val clean = messageText.trim()
+                        val sender = userName.trim().ifBlank { "Guest" }
+
+                        if (clean.isNotEmpty()) {
+                            messages.add(ChatMessage(sender, clean, true))
+                            messageText = ""
+
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    try {
+                                        val connection = URL("https://ntfy.sh/" + CHAT_TOPIC)
+                                            .openConnection() as java.net.HttpURLConnection
+                                        connection.requestMethod = "POST"
+                                        connection.doOutput = true
+                                        connection.connectTimeout = 8000
+                                        connection.readTimeout = 8000
+                                        connection.setRequestProperty("Title", sender)
+                                        connection.setRequestProperty(
+                                            "Content-Type",
+                                            "text/plain; charset=utf-8"
+                                        )
+                                        connection.outputStream.use {
+                                            it.write(clean.toByteArray(Charsets.UTF_8))
+                                        }
+                                        connection.inputStream.close()
+                                        connection.disconnect()
+                                    } catch (_: Exception) {
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = messageText.trim().isNotEmpty()
+                ) {
+                    Text("SEND")
                 }
             }
         }
