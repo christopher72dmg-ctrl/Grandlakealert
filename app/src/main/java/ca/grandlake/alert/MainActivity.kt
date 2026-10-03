@@ -65,10 +65,8 @@ val subtitle: String,
 val url: String?,
 val accent: Color
 )
-
 class MainActivity : ComponentActivity() {
 
-```
 override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -76,7 +74,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
         GrandLakeAlertApp()
     }
 }
-```
 
 }
 
@@ -84,7 +81,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
 @Composable
 fun GrandLakeAlertApp() {
 
-```
 val context = LocalContext.current
 
 var weather by remember {
