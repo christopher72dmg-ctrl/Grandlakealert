@@ -852,7 +852,7 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
 
     fun requiredPermissions(): Array<String> {
         return when {
-            Build.VERSION.SDK_INT >= 32 -> arrayOf(
+            Build.VERSION.SDK_INT >= 33 -> arrayOf(
                 Manifest.permission.BLUETOOTH_ADVERTISE,
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN,
@@ -861,9 +861,12 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
             Build.VERSION.SDK_INT >= 31 -> arrayOf(
                 Manifest.permission.BLUETOOTH_ADVERTISE,
                 Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
             )
             Build.VERSION.SDK_INT >= 29 -> arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
                 Manifest.permission.ACCESS_FINE_LOCATION
             )
             else -> arrayOf(
