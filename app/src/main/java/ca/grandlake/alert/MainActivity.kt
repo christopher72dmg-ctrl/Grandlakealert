@@ -887,6 +887,8 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
         }
     }
 
+    var permissionsReady by remember { mutableStateOf(hasPermissions()) }
+
     LaunchedEffect(Unit) {
         userName = prefs.getString("username", "Guest") ?: "Guest"
 
@@ -898,12 +900,24 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
             )
         }
 
-        if (!hasPermissions()) {
+        if (!permissionsReady) {
+            statusText = "Nearby permissions missing — checking…"
             activity?.requestPermissions(
                 requiredPermissions(),
                 7001
             )
-            statusText = "Waiting for Nearby permissions…"
+
+            repeat(10) {
+                kotlinx.coroutines.delay(500)
+                if (hasPermissions()) {
+                    permissionsReady = true
+                    return@repeat
+                }
+            }
+
+            if (!permissionsReady) {
+                statusText = "Nearby permission still missing — check App Permissions"
+            }
         }
     }
 
@@ -999,8 +1013,8 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(hasPermissions()) {
-        if (!hasPermissions()) return@LaunchedEffect
+    LaunchedEffect(permissionsReady) {
+        if (!permissionsReady) return@LaunchedEffect
 
         try {
             val strategy = Strategy.P2P_CLUSTER
