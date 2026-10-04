@@ -64,7 +64,8 @@ data class Tile(
     val icon: String,
     val subtitle: String,
     val url: String?,
-    val accent: Color
+    val accent: Color,
+    val chat: Boolean = false
 )
 
 class MainActivity : ComponentActivity() {
@@ -109,6 +110,10 @@ fun GrandLakeAlertApp() {
     }
 
     var showTiles by remember {
+        mutableStateOf(false)
+    }
+
+    var showChat by remember {
         mutableStateOf(false)
     }
 
@@ -440,6 +445,15 @@ fun GrandLakeAlertApp() {
             subtitle = "Live NB traffic events, accidents, closures & construction",
             url = "https://511.gnb.ca/list/events/traffic",
             accent = Color(0xFFAB47BC)
+        ),
+
+        Tile(
+            title = "Offline Chat",
+            icon = "📡",
+            subtitle = "Nearby phone chat • No Internet required",
+            url = null,
+            accent = Color(0xFF29B6F6),
+            chat = true
         )
     )
 
@@ -456,6 +470,12 @@ fun GrandLakeAlertApp() {
     MaterialTheme(
         colorScheme = darkColors
     ) {
+
+        if (showChat) {
+            OfflineChatScreen(
+                onBack = { showChat = false }
+            )
+        } else {
 
         Scaffold(
 
@@ -569,7 +589,8 @@ fun GrandLakeAlertApp() {
 
                                 AlertTile(
                                     tile = tile,
-                                    context = context
+                                    context = context,
+                                    onChat = { if (tile.chat) showChat = true }
                                 )
                             }
                         }
@@ -641,7 +662,8 @@ fun StatusIndicator() {
 @Composable
 fun AlertTile(
     tile: Tile,
-    context: android.content.Context
+    context: android.content.Context,
+    onChat: () -> Unit
 ) {
 
     Card(
@@ -728,7 +750,23 @@ fun AlertTile(
                 modifier = Modifier.weight(1f)
             )
 
-            if (tile.url != null) {
+            if (tile.chat) {
+
+                TextButton(
+                    onClick = onChat,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    Text(
+                        text = "OPEN CHAT",
+                        color = tile.accent,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+
+            } else if (tile.url != null) {
 
                 TextButton(
 
@@ -765,6 +803,7 @@ fun AlertTile(
                     )
                 }
             }
+        }
         }
     }
 }
