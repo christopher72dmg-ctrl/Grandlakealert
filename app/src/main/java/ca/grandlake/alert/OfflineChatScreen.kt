@@ -307,14 +307,16 @@ private fun nearbyPermissions(): Array<String> {
 
     val permissions = mutableListOf<String>()
 
+    // Google Play services can still explicitly check coarse location
+    // during Nearby discovery, even on newer Android versions.
+    permissions += Manifest.permission.ACCESS_COARSE_LOCATION
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         permissions += Manifest.permission.BLUETOOTH_ADVERTISE
         permissions += Manifest.permission.BLUETOOTH_CONNECT
         permissions += Manifest.permission.BLUETOOTH_SCAN
     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         permissions += Manifest.permission.ACCESS_FINE_LOCATION
-    } else {
-        permissions += Manifest.permission.ACCESS_COARSE_LOCATION
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
