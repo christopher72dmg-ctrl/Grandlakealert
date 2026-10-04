@@ -983,11 +983,15 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                 endpointId: String,
                 info: com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
             ) {
+                statusText = "LOCAL • phone found — connecting…"
+
                 nearbyClient.requestConnection(
                     userName.ifBlank { "Grand Lake phone" },
                     endpointId,
                     connectionLifecycleCallback
-                )
+                ).addOnFailureListener { error ->
+                    statusText = "LOCAL • connection request failed: " + error.message
+                }
             }
 
             override fun onEndpointLost(endpointId: String) {
@@ -1008,7 +1012,11 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                 AdvertisingOptions.Builder()
                     .setStrategy(strategy)
                     .build()
-            )
+            ).addOnSuccessListener {
+                statusText = "LOCAL • advertising + searching…"
+            }.addOnFailureListener { error ->
+                statusText = "LOCAL • advertising failed: " + error.message
+            }
 
             nearbyClient.startDiscovery(
                 "ca.grandlake.alert.localchat",
@@ -1016,11 +1024,13 @@ fun LocalEmergencyChat(onBack: () -> Unit) {
                 DiscoveryOptions.Builder()
                     .setStrategy(strategy)
                     .build()
-            )
-
-            statusText = "LOCAL • looking for nearby phones"
-        } catch (_: Exception) {
-            statusText = "LOCAL radio could not start"
+            ).addOnSuccessListener {
+                statusText = "LOCAL • searching for nearby phones…"
+            }.addOnFailureListener { error ->
+                statusText = "LOCAL • discovery failed: " + error.message
+            }
+        } catch (error: Exception) {
+            statusText = "LOCAL • radio error: " + error.message
         }
     }
 
