@@ -26,7 +26,7 @@
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:minSdkVersion="29"
-        android:maxSdkVersion="30" />
+        android:maxSdkVersion="31" />
 
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADVERTISE"
