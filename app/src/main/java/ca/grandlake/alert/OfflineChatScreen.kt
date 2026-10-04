@@ -66,243 +66,165 @@ private class NearbyChatManager(context: Context) {
     private val discovered = linkedMapOf<String, String>()
     private val requested = mutableSetOf<String>()
     private val connected = mutableSetOf<String>()
+    private val seenMessages = mutableSetOf<String>()
 
     var onStatus: (String) -> Unit = {}
     var onNearbyCount: (Int) -> Unit = {}
     var onMessage: (String) -> Unit = {}
 
+    private data class MeshMessage(
+        val id: String,
+        val hopsLeft: Int,
+        val text: String
+    )
+
+    private fun encode(message: MeshMessage): String {
+        return "GLM1|" + message.id + "|" + message.hopsLeft + "|" + message.text
+    }
+
+    private fun decode(raw: String): MeshMessage? {
+        val parts = raw.split("|", limit = 4)
+        if (parts.size != 4 || parts[0] != "GLM1") return null
+        val hops = parts[2].toIntOrNull() ?: return null
+        if (parts[1].isBlank() || parts[3].isBlank()) return null
+        return MeshMessage(parts[1], hops, parts[3])
+    }
+
+    private fun sendMeshMessage(message: MeshMessage, exceptEndpointId: String? = null) {
+        if (message.hopsLeft <= 0) return
+        val ids = connected.filter { it != exceptEndpointId }.toList()
+        if (ids.isEmpty()) return
+        client.sendPayload(
+            ids,
+            Payload.fromBytes(encode(message).toByteArray(StandardCharsets.UTF_8))
+        )
+    }
+
     private val payloadCallback = object : PayloadCallback() {
+        override fun onPayloadReceived(endpointId: String, payload: Payload) {
+            if (payload.type != Payload.Type.BYTES) return
+            val bytes = payload.asBytes() ?: return
+            val raw = String(bytes, StandardCharsets.UTF_8)
+            val meshMessage = decode(raw)
 
-        override fun onPayloadReceived(
-            endpointId: String,
-            payload: Payload
-        ) {
-            if (payload.type == Payload.Type.BYTES) {
-                val bytes = payload.asBytes() ?: return
-                val message = String(bytes, StandardCharsets.UTF_8)
-
-                if (message.isNotBlank()) {
-                    val name =
-                        discovered[endpointId] ?: "Nearby phone"
-
-                    onMessage(name + ": " + message)
+            if (meshMessage == null) {
+                if (raw.isNotBlank()) {
+                    val name = discovered[endpointId] ?: "Nearby phone"
+                    onMessage(name + ": " + raw)
                 }
+                return
+            }
+
+            if (!seenMessages.add(meshMessage.id)) return
+
+            val name = discovered[endpointId] ?: "Nearby phone"
+            onMessage(name + ": " + meshMessage.text)
+
+            if (meshMessage.hopsLeft > 1) {
+                sendMeshMessage(
+                    meshMessage.copy(hopsLeft = meshMessage.hopsLeft - 1),
+                    exceptEndpointId = endpointId
+                )
+                onStatus("🕸️ Relaying message through " + name + "…")
             }
         }
 
-        override fun onPayloadTransferUpdate(
-            endpointId: String,
-            update: PayloadTransferUpdate
-        ) {
+        override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
         }
     }
 
-    private val connectionLifecycleCallback =
-        object : ConnectionLifecycleCallback() {
+    private val connectionLifecycleCallback = object : ConnectionLifecycleCallback() {
+        override fun onConnectionInitiated(endpointId: String, connectionInfo: ConnectionInfo) {
+            discovered[endpointId] = connectionInfo.endpointName.ifBlank { "Nearby phone" }
+            onStatus("Connecting to " + connectionInfo.endpointName + "…")
+            client.acceptConnection(endpointId, payloadCallback)
+        }
 
-            override fun onConnectionInitiated(
-                endpointId: String,
-                connectionInfo: ConnectionInfo
-            ) {
-                discovered[endpointId] =
-                    connectionInfo.endpointName.ifBlank {
-                        "Nearby phone"
-                    }
-
-                onStatus(
-                    "Connecting to " +
-                        connectionInfo.endpointName +
-                        "…"
-                )
-
-                client.acceptConnection(
-                    endpointId,
-                    payloadCallback
-                )
-            }
-
-            override fun onConnectionResult(
-                endpointId: String,
-                resolution: ConnectionResolution
-            ) {
-                val statusCode =
-                    resolution.status.statusCode
-
-                if (
-                    statusCode ==
-                    ConnectionsStatusCodes.STATUS_OK
-                ) {
-                    connected.add(endpointId)
-                    requested.remove(endpointId)
-
-                    onStatus(
-                        "🟢 Connected to " +
-                            (discovered[endpointId]
-                                ?: "nearby phone")
-                    )
-                } else {
-                    requested.remove(endpointId)
-                    onStatus(
-                        "Nearby connection failed. Looking again…"
-                    )
-                }
-            }
-
-            override fun onDisconnected(endpointId: String) {
-                connected.remove(endpointId)
+        override fun onConnectionResult(endpointId: String, resolution: ConnectionResolution) {
+            if (resolution.status.statusCode == ConnectionsStatusCodes.STATUS_OK) {
+                connected.add(endpointId)
                 requested.remove(endpointId)
-
-                onStatus(
-                    if (connected.isEmpty()) {
-                        "No nearby phones connected. Searching…"
-                    } else {
-                        "One nearby phone disconnected."
-                    }
-                )
+                onStatus("🟢 Connected to " + (discovered[endpointId] ?: "nearby phone"))
+            } else {
+                requested.remove(endpointId)
+                onStatus("Nearby connection failed. Looking again…")
             }
         }
 
-    private val endpointDiscoveryCallback =
-        object : EndpointDiscoveryCallback() {
+        override fun onDisconnected(endpointId: String) {
+            connected.remove(endpointId)
+            requested.remove(endpointId)
+            onStatus(if (connected.isEmpty()) "No nearby phones connected. Searching…" else "One nearby phone disconnected.")
+        }
+    }
 
-            override fun onEndpointFound(
-                endpointId: String,
-                info: DiscoveredEndpointInfo
-            ) {
-                discovered[endpointId] =
-                    info.endpointName.ifBlank {
-                        "Nearby phone"
-                    }
-
-                onNearbyCount(discovered.size)
-
-                if (
-                    endpointId !in requested &&
-                    endpointId !in connected
-                ) {
-                    requested.add(endpointId)
-
-                    val options =
-                        ConnectionOptions.Builder()
-                            .setConnectionType(
-                                ConnectionType.NON_DISRUPTIVE
-                            )
-                            .setLowPower(false)
-                            .build()
-
-                    client.requestConnection(
-                        "Grand Lake Alert",
-                        endpointId,
-                        connectionLifecycleCallback,
-                        options
-                    ).addOnFailureListener {
-                        requested.remove(endpointId)
-                    }
-
-                    onStatus(
-                        "📡 Found " +
-                            info.endpointName +
-                            ". Connecting…"
-                    )
-                }
-            }
-
-            override fun onEndpointLost(
-                endpointId: String
-            ) {
-                discovered.remove(endpointId)
-                requested.remove(endpointId)
-
-                onNearbyCount(discovered.size)
-
-                if (connected.isEmpty()) {
-                    onStatus(
-                        "Searching for nearby phones…"
-                    )
-                }
+    private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
+        override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
+            discovered[endpointId] = info.endpointName.ifBlank { "Nearby phone" }
+            onNearbyCount(discovered.size)
+            if (endpointId !in requested && endpointId !in connected) {
+                requested.add(endpointId)
+                val options = ConnectionOptions.Builder()
+                    .setConnectionType(ConnectionType.NON_DISRUPTIVE)
+                    .setLowPower(false)
+                    .build()
+                client.requestConnection("Grand Lake Alert", endpointId, connectionLifecycleCallback, options)
+                    .addOnFailureListener { requested.remove(endpointId) }
+                onStatus("📡 Found " + info.endpointName + ". Connecting…")
             }
         }
+
+        override fun onEndpointLost(endpointId: String) {
+            discovered.remove(endpointId)
+            requested.remove(endpointId)
+            onNearbyCount(discovered.size)
+            if (connected.isEmpty()) onStatus("Searching for nearby phones…")
+        }
+    }
 
     fun start() {
-
-        val advertisingOptions =
-            AdvertisingOptions.Builder()
-                .setStrategy(strategy)
-                .setConnectionType(
-                    ConnectionType.NON_DISRUPTIVE
-                )
-                .setLowPower(false)
-                .build()
-
-        val discoveryOptions =
-            DiscoveryOptions.Builder()
-                .setStrategy(strategy)
-                .setLowPower(false)
-                .build()
-
-        client.startAdvertising(
-            "Grand Lake Alert",
-            NEARBY_SERVICE_ID,
-            connectionLifecycleCallback,
-            advertisingOptions
-        ).addOnSuccessListener {
-            onStatus(
-                "📡 Visible to nearby Grand Lake Alert phones"
-            )
-        }.addOnFailureListener { error ->
-            onStatus(
-                "Nearby advertising unavailable: " +
-                    (error.message ?: "check permissions")
-            )
-        }
-
-        client.startDiscovery(
-            NEARBY_SERVICE_ID,
-            endpointDiscoveryCallback,
-            discoveryOptions
-        ).addOnFailureListener { error ->
-            onStatus(
-                "Nearby discovery unavailable: " +
-                    (error.message ?: "check permissions")
-            )
-        }
+        val advertisingOptions = AdvertisingOptions.Builder()
+            .setStrategy(strategy)
+            .setConnectionType(ConnectionType.NON_DISRUPTIVE)
+            .setLowPower(false)
+            .build()
+        val discoveryOptions = DiscoveryOptions.Builder()
+            .setStrategy(strategy)
+            .setLowPower(false)
+            .build()
+        client.startAdvertising("Grand Lake Alert", NEARBY_SERVICE_ID, connectionLifecycleCallback, advertisingOptions)
+            .addOnSuccessListener { onStatus("📡 Visible to nearby Grand Lake Alert phones") }
+            .addOnFailureListener { error -> onStatus("Nearby advertising unavailable: " + (error.message ?: "check permissions")) }
+        client.startDiscovery(NEARBY_SERVICE_ID, endpointDiscoveryCallback, discoveryOptions)
+            .addOnFailureListener { error -> onStatus("Nearby discovery unavailable: " + (error.message ?: "check permissions")) }
     }
 
     fun sendMessage(message: String) {
-
-        val ids = connected.toList()
-
-        if (ids.isEmpty()) {
-            onStatus(
-                "No nearby phone is connected yet."
-            )
+        if (message.isBlank()) return
+        if (connected.isEmpty()) {
+            onStatus("No nearby phone is connected yet.")
             return
         }
-
-        val payload =
-            Payload.fromBytes(
-                message.toByteArray(
-                    StandardCharsets.UTF_8
-                )
-            )
-
-        client.sendPayload(ids, payload)
-            .addOnFailureListener {
-                onStatus("Message could not be sent.")
-            }
+        val meshMessage = MeshMessage(
+            id = java.util.UUID.randomUUID().toString(),
+            hopsLeft = 4,
+            text = message
+        )
+        seenMessages.add(meshMessage.id)
+        sendMeshMessage(meshMessage)
+        onStatus(if (connected.size == 1) "📡 Message sent to nearby phone." else "🕸️ Message sent to " + connected.size + " nearby phones.")
     }
 
     fun stop() {
         client.stopAdvertising()
         client.stopDiscovery()
         client.stopAllEndpoints()
-
         discovered.clear()
         requested.clear()
         connected.clear()
+        seenMessages.clear()
     }
 }
-
 private fun nearbyPermissions(): Array<String> {
 
     val permissions = mutableListOf<String>()
