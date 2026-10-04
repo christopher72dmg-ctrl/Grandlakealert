@@ -307,6 +307,11 @@ private fun nearbyPermissions(): Array<String> {
 
     val permissions = mutableListOf<String>()
 
+    // Nearby Connections may require location access for discovery,
+    // including on newer Android versions.
+    permissions +=
+        Manifest.permission.ACCESS_COARSE_LOCATION
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         permissions +=
             Manifest.permission.BLUETOOTH_ADVERTISE
@@ -319,9 +324,6 @@ private fun nearbyPermissions(): Array<String> {
     ) {
         permissions +=
             Manifest.permission.ACCESS_FINE_LOCATION
-    } else {
-        permissions +=
-            Manifest.permission.ACCESS_COARSE_LOCATION
     }
 
     if (
