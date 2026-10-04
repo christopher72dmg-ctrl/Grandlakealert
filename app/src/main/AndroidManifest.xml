@@ -5,11 +5,11 @@
     <!-- Nearby Connections / offline Bluetooth + Wi-Fi discovery -->
     <uses-permission
         android:name="android.permission.ACCESS_WIFI_STATE"
-        android:maxSdkVersion="31" />
+        />
 
     <uses-permission
         android:name="android.permission.CHANGE_WIFI_STATE"
-        android:maxSdkVersion="31" />
+        />
 
     <uses-permission
         android:name="android.permission.BLUETOOTH"
