@@ -307,16 +307,15 @@ private fun nearbyPermissions(): Array<String> {
 
     val permissions = mutableListOf<String>()
 
-    // Google Play services can still explicitly check coarse location
-    // during Nearby discovery, even on newer Android versions.
+    // Nearby/Google Play services may require location permissions
+    // for discovery, depending on Android version and device.
     permissions += Manifest.permission.ACCESS_COARSE_LOCATION
+    permissions += Manifest.permission.ACCESS_FINE_LOCATION
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         permissions += Manifest.permission.BLUETOOTH_ADVERTISE
         permissions += Manifest.permission.BLUETOOTH_CONNECT
         permissions += Manifest.permission.BLUETOOTH_SCAN
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        permissions += Manifest.permission.ACCESS_FINE_LOCATION
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -325,6 +324,7 @@ private fun nearbyPermissions(): Array<String> {
 
     return permissions.toTypedArray()
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OfflineChatScreen(
