@@ -603,7 +603,7 @@ fun GrandLakeAlertApp() {
 }
 
 @Composable
-fun StatusIndicator {
+fun StatusIndicator() {
 
     val infiniteTransition =
         rememberInfiniteTransition(
