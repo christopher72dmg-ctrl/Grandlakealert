@@ -446,7 +446,6 @@ fun GrandLakeAlertApp() {
             url = "https://511.gnb.ca/list/events/traffic",
             accent = Color(0xFFAB47BC)
         ),
-
         Tile(
             title = "Offline Chat",
             icon = "📡",
@@ -476,8 +475,7 @@ fun GrandLakeAlertApp() {
                 onBack = { showChat = false }
             )
         } else {
-
-        Scaffold(
+            Scaffold(
 
             containerColor = Color(0xFF101214),
 
@@ -590,7 +588,9 @@ fun GrandLakeAlertApp() {
                                 AlertTile(
                                     tile = tile,
                                     context = context,
-                                    onChat = { if (tile.chat) showChat = true }
+                                    onChat = {
+                                        if (tile.chat) showChat = true
+                                    }
                                 )
                             }
                         }
@@ -598,11 +598,12 @@ fun GrandLakeAlertApp() {
                 )
             }
         }
+        }
     }
 }
 
 @Composable
-fun StatusIndicator() {
+fun StatusIndicator {
 
     val infiniteTransition =
         rememberInfiniteTransition(
@@ -751,7 +752,6 @@ fun AlertTile(
             )
 
             if (tile.chat) {
-
                 TextButton(
                     onClick = onChat,
                     modifier = Modifier
@@ -765,7 +765,6 @@ fun AlertTile(
                         softWrap = false
                     )
                 }
-
             } else if (tile.url != null) {
 
                 TextButton(
@@ -803,7 +802,6 @@ fun AlertTile(
                     )
                 }
             }
-        }
         }
     }
 }
