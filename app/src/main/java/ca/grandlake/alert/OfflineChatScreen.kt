@@ -29,10 +29,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,21 +55,84 @@ import com.google.android.gms.nearby.connection.PayloadCallback
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
 import java.nio.charset.StandardCharsets
+import java.util.UUID
+import org.json.JSONObject
 
 private const val NEARBY_SERVICE_ID = "ca.grandlake.alert.offlinechat"
+private const val MAX_HOPS = 8
+
+private data class MeshMessage(
+    val id: String,
+    val origin: String,
+    val text: String,
+    val hops: Int,
+    val path: List<String>
+)
 
 private class NearbyChatManager(context: Context) {
 
     private val client = Nearby.getConnectionsClient(context)
     private val strategy = Strategy.P2P_CLUSTER
+    private val nodeName =
+        "Node-" + UUID.randomUUID().toString().takeLast(4).uppercase()
 
     private val discovered = linkedMapOf<String, String>()
     private val requested = mutableSetOf<String>()
     private val connected = mutableSetOf<String>()
+    private val seenMessages = mutableSetOf<String>()
 
     var onStatus: (String) -> Unit = {}
     var onNearbyCount: (Int) -> Unit = {}
+    var onConnectedPeers: (List<String>) -> Unit = {}
     var onMessage: (String) -> Unit = {}
+
+    private fun updatePeers() {
+        onConnectedPeers(
+            connected.map {
+                discovered[it] ?: "Nearby phone"
+            }.sorted()
+        )
+    }
+
+    private fun sendEnvelope(
+        endpointIds: List<String>,
+        message: MeshMessage
+    ) {
+        if (endpointIds.isEmpty()) return
+
+        val json = JSONObject()
+            .put("id", message.id)
+            .put("origin", message.origin)
+            .put("text", message.text)
+            .put("hops", message.hops)
+            .put("path", message.path.joinToString(" → "))
+
+        client.sendPayload(
+            endpointIds,
+            Payload.fromBytes(
+                json.toString().toByteArray(StandardCharsets.UTF_8)
+            )
+        )
+    }
+
+    private fun relay(
+        message: MeshMessage,
+        incomingEndpoint: String
+    ) {
+        if (message.hops >= MAX_HOPS) return
+
+        val nextPath = message.path + nodeName
+        val relayMessage = message.copy(
+            hops = message.hops + 1,
+            path = nextPath
+        )
+
+        val targets = connected.filter {
+            it != incomingEndpoint
+        }
+
+        sendEnvelope(targets, relayMessage)
+    }
 
     private val payloadCallback = object : PayloadCallback() {
 
@@ -77,15 +140,56 @@ private class NearbyChatManager(context: Context) {
             endpointId: String,
             payload: Payload
         ) {
-            if (payload.type == Payload.Type.BYTES) {
-                val bytes = payload.asBytes() ?: return
-                val message = String(bytes, StandardCharsets.UTF_8)
+            if (payload.type != Payload.Type.BYTES) return
 
-                if (message.isNotBlank()) {
-                    val name =
-                        discovered[endpointId] ?: "Nearby phone"
+            val bytes = payload.asBytes() ?: return
+            val raw = String(bytes, StandardCharsets.UTF_8)
 
-                    onMessage(name + ": " + message)
+            try {
+                val json = JSONObject(raw)
+                val id = json.optString("id")
+
+                if (id.isBlank() || id in seenMessages) return
+
+                seenMessages.add(id)
+
+                val pathText = json.optString("path")
+                val path =
+                    if (pathText.isBlank()) {
+                        emptyList()
+                    } else {
+                        pathText.split(" → ")
+                    }
+
+                val message = MeshMessage(
+                    id = id,
+                    origin = json.optString("origin", "Unknown"),
+                    text = json.optString("text"),
+                    hops = json.optInt("hops", 0),
+                    path = path
+                )
+
+                if (message.text.isNotBlank()) {
+                    onMessage(
+                        "From " + message.origin +
+                            ": " + message.text +
+                            "\nRoute: " +
+                            message.path.joinToString(" → ") +
+                            "\nHops: " + message.hops
+                    )
+                }
+
+                relay(message, endpointId)
+
+            } catch (_: Exception) {
+                val name =
+                    discovered[endpointId] ?: "Nearby phone"
+
+                if (raw.isNotBlank()) {
+                    onMessage(
+                        name + ": " + raw +
+                            "\nRoute: direct\nHops: 1"
+                    )
                 }
             }
         }
@@ -134,6 +238,7 @@ private class NearbyChatManager(context: Context) {
                 ) {
                     connected.add(endpointId)
                     requested.remove(endpointId)
+                    updatePeers()
 
                     onStatus(
                         "🟢 Connected to " +
@@ -151,6 +256,7 @@ private class NearbyChatManager(context: Context) {
             override fun onDisconnected(endpointId: String) {
                 connected.remove(endpointId)
                 requested.remove(endpointId)
+                updatePeers()
 
                 onStatus(
                     if (connected.isEmpty()) {
@@ -191,7 +297,7 @@ private class NearbyChatManager(context: Context) {
                             .build()
 
                     client.requestConnection(
-                        "Grand Lake Alert",
+                        nodeName,
                         endpointId,
                         connectionLifecycleCallback,
                         options
@@ -212,7 +318,6 @@ private class NearbyChatManager(context: Context) {
             ) {
                 discovered.remove(endpointId)
                 requested.remove(endpointId)
-
                 onNearbyCount(discovered.size)
 
                 if (connected.isEmpty()) {
@@ -241,13 +346,14 @@ private class NearbyChatManager(context: Context) {
                 .build()
 
         client.startAdvertising(
-            "Grand Lake Alert",
+            nodeName,
             NEARBY_SERVICE_ID,
             connectionLifecycleCallback,
             advertisingOptions
         ).addOnSuccessListener {
             onStatus(
-                "📡 Visible to nearby Grand Lake Alert phones"
+                "📡 " + nodeName +
+                    " is visible to nearby phones"
             )
         }.addOnFailureListener { error ->
             onStatus(
@@ -279,17 +385,23 @@ private class NearbyChatManager(context: Context) {
             return
         }
 
-        val payload =
-            Payload.fromBytes(
-                message.toByteArray(
-                    StandardCharsets.UTF_8
-                )
+        val meshMessage =
+            MeshMessage(
+                id = UUID.randomUUID().toString(),
+                origin = nodeName,
+                text = message,
+                hops = 0,
+                path = listOf(nodeName)
             )
 
-        client.sendPayload(ids, payload)
-            .addOnFailureListener {
-                onStatus("Message could not be sent.")
-            }
+        seenMessages.add(meshMessage.id)
+        sendEnvelope(ids, meshMessage)
+
+        onStatus(
+            "📤 Sent to " +
+                ids.size +
+                " direct connection(s)"
+        )
     }
 
     fun stop() {
@@ -307,8 +419,6 @@ private fun nearbyPermissions(): Array<String> {
 
     val permissions = mutableListOf<String>()
 
-    // Nearby/Google Play services may require location permissions
-    // for discovery, depending on Android version and device.
     permissions += Manifest.permission.ACCESS_COARSE_LOCATION
     permissions += Manifest.permission.ACCESS_FINE_LOCATION
 
@@ -344,6 +454,10 @@ fun OfflineChatScreen(
 
     var nearbyCount by remember {
         mutableStateOf(0)
+    }
+
+    var connectedPeers by remember {
+        mutableStateOf(listOf<String>())
     }
 
     var messageText by remember {
@@ -411,8 +525,12 @@ fun OfflineChatScreen(
             nearbyCount = count
         }
 
+        manager.onConnectedPeers = { peers ->
+            connectedPeers = peers
+        }
+
         manager.onMessage = { message ->
-            messages.add("Them: " + message)
+            messages.add(message)
         }
 
         requestNearbyPermissions()
@@ -437,13 +555,14 @@ fun OfflineChatScreen(
             TopAppBar(
                 title = {
                     Column {
+
                         Text(
                             text = "📡 Offline Chat",
                             color = Color.White
                         )
 
                         Text(
-                            text = "AUTOMATIC NEARBY CHAT",
+                            text = "AUTOMATIC MESH TEST",
                             color = Color(0xFF69F0AE),
                             style =
                                 MaterialTheme.typography
@@ -451,6 +570,7 @@ fun OfflineChatScreen(
                         )
                     }
                 },
+
                 navigationIcon = {
 
                     IconButton(
@@ -465,6 +585,7 @@ fun OfflineChatScreen(
                         )
                     }
                 },
+
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor =
@@ -497,18 +618,43 @@ fun OfflineChatScreen(
 
                     Text(
                         text =
-                            if (nearbyCount == 0) {
-                                "🔎 No nearby phones yet"
-                            } else {
-                                "📱 " +
-                                    nearbyCount +
-                                    " nearby phone(s) found"
-                            },
+                            "📱 " +
+                                nearbyCount +
+                                " nearby phone(s) detected",
                         color = Color(0xFF69F0AE),
                         style =
                             MaterialTheme.typography
                                 .titleMedium
                     )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(4.dp)
+                    )
+
+                    Text(
+                        text =
+                            "Direct connections: " +
+                                connectedPeers.size,
+                        color = Color.White,
+                        style =
+                            MaterialTheme.typography
+                                .bodyMedium
+                    )
+
+                    if (connectedPeers.isNotEmpty()) {
+
+                        Text(
+                            text =
+                                connectedPeers.joinToString(
+                                    " • "
+                                ),
+                            color = Color.LightGray,
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall
+                        )
+                    }
 
                     Spacer(
                         modifier =
@@ -525,12 +671,12 @@ fun OfflineChatScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.height(4.dp)
+                            Modifier.height(6.dp)
                     )
 
                     Text(
                         text =
-                            "No pairing, IP address or Wi-Fi setup required.",
+                            "Mesh test: messages can relay through another phone.",
                         color = Color.Gray,
                         style =
                             MaterialTheme.typography
@@ -540,7 +686,8 @@ fun OfflineChatScreen(
             }
 
             Spacer(
-                modifier = Modifier.height(10.dp)
+                modifier =
+                    Modifier.height(10.dp)
             )
 
             Card(
@@ -559,7 +706,7 @@ fun OfflineChatScreen(
                         .fillMaxSize()
                         .padding(10.dp),
                     verticalArrangement =
-                        Arrangement.spacedBy(6.dp)
+                        Arrangement.spacedBy(8.dp)
                 ) {
 
                     items(messages) { message ->
@@ -576,7 +723,8 @@ fun OfflineChatScreen(
             }
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier =
+                    Modifier.height(8.dp)
             )
 
             Row(
@@ -599,10 +747,6 @@ fun OfflineChatScreen(
                     singleLine = true
                 )
 
-                Spacer(
-                    modifier = Modifier.height(1.dp)
-                )
-
                 TextButton(
                     onClick = {
 
@@ -610,10 +754,13 @@ fun OfflineChatScreen(
                             messageText.trim()
 
                         if (text.isNotEmpty()) {
+
                             manager.sendMessage(text)
+
                             messages.add(
                                 "Me: " + text
                             )
+
                             messageText = ""
                         }
                     }
