@@ -780,7 +780,8 @@ fun GrandLakeAlertApp() {
                                     tile = tile,
                                     context = context,
                                     onChat = { if (tile.chat) showChat = true },
-                                    onWeather = { if (tile.weather) showWeather = !showWeather }
+                                    onWeather = { if (tile.weather) showWeather = !showWeather },
+                                    weatherExpanded = showWeather
                                 )
                             }
                         }
@@ -1107,7 +1108,8 @@ fun AlertTile(
     tile: Tile,
     context: android.content.Context,
     onChat: () -> Unit,
-    onWeather: () -> Unit
+    onWeather: () -> Unit,
+    weatherExpanded: Boolean
 ) {
 
     Card(
@@ -1200,7 +1202,7 @@ fun AlertTile(
 
             if (tile.weather) {
                 TextButton(onClick = onWeather, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                    Text("OPEN WEATHER", color = tile.accent, maxLines = 1, softWrap = false)
+                    Text(if (weatherExpanded) "HIDE WEATHER" else "SHOW WEATHER", color = tile.accent, maxLines = 1, softWrap = false)
                 }
             } else if (tile.chat) {
                 TextButton(
