@@ -772,7 +772,7 @@ fun GrandLakeAlertApp() {
 
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(((tiles.size + 1) / 2 * 190).dp),
+                        .height(((tiles.size + 1) / 2 * 142).dp),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(12.dp),
@@ -953,7 +953,7 @@ fun WeatherMiniCard(title: String, body: String, accent: Color, modifier: Modifi
         colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, color = accent, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
             Text(body, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 3)
         }
@@ -1169,7 +1169,7 @@ fun AlertTile(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(188.dp),
+            .height(140.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF181B1F)
@@ -1188,7 +1188,7 @@ fun AlertTile(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(29.dp)
                         .background(
                             tile.accent.copy(alpha = 0.16f),
                             RoundedCornerShape(10.dp)
@@ -1208,9 +1208,31 @@ fun AlertTile(
                     color = tile.accent,
                     maxLines = 2
                 )
+
+                if (tile.url != null) {
+                    TextButton(
+                        onClick = {
+                            try {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(tile.url))
+                                )
+                            } catch (_: Exception) {
+                            }
+                        },
+                        modifier = Modifier.size(30.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "ⓘ",
+                            color = tile.accent,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopStart) {
                 if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
@@ -1220,7 +1242,7 @@ fun AlertTile(
                         text = tile.subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.LightGray,
-                        maxLines = 4
+                        maxLines = 3
                     )
                 }
             }
@@ -1250,26 +1272,6 @@ fun AlertTile(
                     ) {
                         Text(
                             "OPEN",
-                            color = tile.accent,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                } else if (tile.url != null) {
-                    TextButton(
-                        onClick = {
-                            try {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse(tile.url))
-                                )
-                            } catch (_: Exception) {
-                            }
-                        },
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Text(
-                            "SOURCE",
                             color = tile.accent,
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
