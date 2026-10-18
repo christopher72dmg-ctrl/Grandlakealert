@@ -692,7 +692,7 @@ fun GrandLakeAlertApp() {
                             )
 
                             Text(
-                                text = "LOCAL INFORMATION",
+                                text = "Grand Lake, NB • LOCAL INFORMATION",
                                 color = Color(0xFF69F0AE),
                                 style = MaterialTheme.typography.labelSmall
                             )
@@ -745,12 +745,6 @@ fun GrandLakeAlertApp() {
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
-
-                        Text(
-                            text = "Grand Lake, NB",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White
-                        )
 
                         Text(
                             text = "Live local information",
