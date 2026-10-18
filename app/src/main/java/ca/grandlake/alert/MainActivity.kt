@@ -1134,149 +1134,109 @@ fun AlertTile(
     onWeather: () -> Unit,
     weatherExpanded: Boolean
 ) {
-
     Card(
-
         modifier = Modifier
             .fillMaxWidth()
-            .height(235.dp),
-
-        shape =
-            RoundedCornerShape(20.dp),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    Color(0xFF181B1F)
-            ),
-
-        elevation =
-            CardDefaults.cardElevation(
-                defaultElevation = 4.dp
-            )
+            .height(178.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF181B1F)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-
         Column(
-
             modifier = Modifier
                 .fillMaxSize()
-                .padding(15.dp)
+                .padding(10.dp)
         ) {
-
-            Box(
-
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        tile.accent.copy(alpha = 0.16f),
-                        RoundedCornerShape(14.dp)
-                    ),
-
-                contentAlignment =
-                    Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            tile.accent.copy(alpha = 0.16f),
+                            RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = tile.icon,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
 
                 Text(
-                    text = tile.icon,
-                    style =
-                        MaterialTheme.typography.titleLarge
+                    text = tile.title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = tile.accent,
+                    maxLines = 2
                 )
+
+                if (tile.weather) {
+                    TextButton(
+                        onClick = onWeather,
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            if (weatherExpanded) "HIDE" else "WEATHER",
+                            color = tile.accent,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else if (tile.chat) {
+                    TextButton(
+                        onClick = onChat,
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            "OPEN",
+                            color = tile.accent,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else if (tile.url != null) {
+                    TextButton(
+                        onClick = {
+                            try {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(tile.url))
+                                )
+                            } catch (_: Exception) {
+                            }
+                        },
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            "SOURCE",
+                            color = tile.accent,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
             }
 
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
-            Text(
-
-                text = tile.title,
-
-                style =
-                    MaterialTheme.typography.titleMedium,
-
-                color = tile.accent,
-
-                maxLines = 2
-            )
-
-            Spacer(
-                modifier = Modifier.height(6.dp)
-            )
+            Spacer(modifier = Modifier.height(7.dp))
 
             if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
-                AircraftTicker(text = tile.subtitle)
+                AircraftTicker(text = tile.subtitle, compact = true)
             } else {
                 Text(
-
                     text = tile.subtitle,
-
-                    style =
-                        MaterialTheme.typography.bodySmall,
-
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color.LightGray,
-
-                    maxLines = 5
+                    maxLines = 4
                 )
-            }
-
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
-
-            if (tile.weather) {
-                TextButton(onClick = onWeather, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                    Text(if (weatherExpanded) "HIDE WEATHER" else "SHOW WEATHER", color = tile.accent, maxLines = 1, softWrap = false)
-                }
-            } else if (tile.chat) {
-                TextButton(
-                    onClick = onChat,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-                    Text(
-                        text = "OPEN CHAT",
-                        color = tile.accent,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            } else if (tile.url != null) {
-
-                TextButton(
-
-                    onClick = {
-
-                        try {
-
-                            val intent =
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse(tile.url)
-                                )
-
-                            context.startActivity(intent)
-
-                        } catch (_: Exception) {
-                        }
-                    },
-
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-
-                    Text(
-
-                        text = "OPEN SOURCE",
-
-                        color = tile.accent,
-
-                        maxLines = 1,
-
-                        softWrap = false
-                    )
-                }
             }
         }
     }
@@ -1284,7 +1244,7 @@ fun AlertTile(
 
 
 @Composable
-fun AircraftTicker(text: String) {
+fun AircraftTicker(text: String, compact: Boolean = false) {
     val lines = remember(text) {
         text.lines()
             .map { it.trim() }
@@ -1306,7 +1266,7 @@ fun AircraftTicker(text: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp),
+            .height(if (compact) 104.dp else 72.dp),
         contentAlignment = Alignment.TopStart
     ) {
         AnimatedContent(
