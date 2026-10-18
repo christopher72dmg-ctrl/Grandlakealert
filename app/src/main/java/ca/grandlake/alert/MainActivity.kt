@@ -692,7 +692,7 @@ fun GrandLakeAlertApp() {
                             )
 
                             Text(
-                                text = "Grand Lake, NB • LOCAL INFORMATION",
+                                text = "LOCAL INFORMATION",
                                 color = Color(0xFF69F0AE),
                                 style = MaterialTheme.typography.labelSmall
                             )
@@ -978,6 +978,26 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 Text(alerts.replace("\n", " • "), modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE), color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 1, softWrap = false)
             }
         }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF24282D))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("🌊 COASTAL TIDES", color = Color(0xFF80CBC4), style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.size(8.dp))
+                Text("Saint John reference • high / low predictions", modifier = Modifier.weight(1f), color = Color.LightGray, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                TextButton(
+                    onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tides.gc.ca/en/stations/00065/predictions"))) } catch (_: Exception) {} },
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                ) {
+                    Text("TIDES ↗", color = Color(0xFF69F0AE), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+            }
+        }
         Text(frost, color = Color(0xFF90CAF9), style = MaterialTheme.typography.labelSmall)
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(moon.substringAfter("\n", "") + " • " + updated + " • Forecasts are estimates", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.labelSmall, maxLines = 2)
@@ -1125,126 +1145,30 @@ fun StatusIndicator() {
 @Composable
 fun DateTimeBanner() {
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
-
     LaunchedEffect(Unit) {
         while (true) {
             currentTime = System.currentTimeMillis()
             kotlinx.coroutines.delay(1000L)
         }
     }
-
-    val dateText = remember(currentTime) {
-        SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.CANADA).format(Date(currentTime))
-    }
-    val time12 = remember(currentTime) {
-        SimpleDateFormat("h:mm:ss a", Locale.CANADA).format(Date(currentTime))
-    }
-    val time24 = remember(currentTime) {
-        SimpleDateFormat("HH:mm:ss", Locale.CANADA).format(Date(currentTime))
-    }
-
+    val dateText = remember(currentTime) { SimpleDateFormat("EEE, MMM d", Locale.CANADA).format(Date(currentTime)) }
+    val timeText = remember(currentTime) { SimpleDateFormat("h:mm a", Locale.CANADA).format(Date(currentTime)) }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 2.dp),
-        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "LOCAL DATE & TIME",
-                color = Color(0xFF69F0AE),
-                style = MaterialTheme.typography.labelSmall
-            )
-
-            Spacer(modifier = Modifier.height(3.dp))
-
-            AnimatedContent(
-                targetState = dateText,
-                transitionSpec = {
-                    (slideInVertically(animationSpec = tween(300)) { height -> height / 2 } +
-                        fadeIn(animationSpec = tween(300))) togetherWith
-                        (slideOutVertically(animationSpec = tween(300)) { height -> -height / 2 } +
-                            fadeOut(animationSpec = tween(300)))
-                },
-                label = "dateTicker"
-            ) { date ->
-                Text(
-                    text = date,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "12-HOUR",
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    AnimatedContent(
-                        targetState = time12,
-                        transitionSpec = {
-                            (slideInVertically(animationSpec = tween(220)) { height -> height / 2 } +
-                                fadeIn(animationSpec = tween(220))) togetherWith
-                                (slideOutVertically(animationSpec = tween(220)) { height -> -height / 2 } +
-                                    fadeOut(animationSpec = tween(220)))
-                        },
-                        label = "twelveHourClock"
-                    ) { time ->
-                        Text(
-                            text = time,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "24-HOUR",
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    AnimatedContent(
-                        targetState = time24,
-                        transitionSpec = {
-                            (slideInVertically(animationSpec = tween(220)) { height -> height / 2 } +
-                                fadeIn(animationSpec = tween(220))) togetherWith
-                                (slideOutVertically(animationSpec = tween(220)) { height -> -height / 2 } +
-                                    fadeOut(animationSpec = tween(220)))
-                        },
-                        label = "twentyFourHourClock"
-                    ) { time ->
-                        Text(
-                            text = time,
-                            color = Color(0xFF69F0AE),
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-            }
+            Text("📍 $dateText", color = Color.LightGray, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(timeText, color = Color(0xFF69F0AE), style = MaterialTheme.typography.titleMedium, maxLines = 1)
         }
     }
 }
-
 
 @Composable
 fun AlertTile(
