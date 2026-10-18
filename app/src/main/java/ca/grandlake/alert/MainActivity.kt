@@ -451,7 +451,7 @@ fun GrandLakeAlertApp() {
                     }
 
                     val updatedMatch = Regex(
-                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\n]{4,50})"
+                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\\n]{4,50})"
                     ).find(html)
                     val updatedText = updatedMatch?.groupValues?.getOrNull(1)
                         ?.let { cleanCell(it) }
