@@ -919,13 +919,43 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
 
                     val k=kp?.toDoubleOrNull()
                     val kpText=k?.let { String.format(Locale.CANADA, "%.1f", it) } ?: kp
-                    when {
+                    val kpLine = when {
                         kp==null -> "K-index data unavailable"
                         k==null -> "Latest planetary K-index: $kp"
-                        k>=5 -> "Kp $kpText • Storm conditions may affect HF radio and aurora activity"
-                        k>=4 -> "Kp $kpText • Active geomagnetic conditions"
+                        k>=5 -> "Kp $kpText • Storm conditions may affect HF radio"
+                        k>=4 -> "Kp $kpText • Geomagnetic activity elevated"
                         else -> "Kp $kpText • Geomagnetic activity quiet"
                     }
+
+                    // HamQSL provides estimated conditions for common amateur bands.
+                    // Keep this optional so a feed outage never hides NOAA Kp.
+                    val bandLines = try {
+                        val bandConn = URL("https://www.hamqsl.com/solarxml.php").openConnection().apply {
+                            connectTimeout=7000
+                            readTimeout=7000
+                        }
+                        val parser = XmlPullParserFactory.newInstance().newPullParser()
+                        parser.setInput(bandConn.getInputStream(), "UTF-8")
+                        val found = mutableListOf<String>()
+                        var event = parser.eventType
+                        while(event != XmlPullParser.END_DOCUMENT) {
+                            if(event == XmlPullParser.START_TAG && parser.name.equals("band", true)) {
+                                val band = parser.getAttributeValue(null, "name")?.trim().orEmpty()
+                                val period = parser.getAttributeValue(null, "time")?.trim().orEmpty()
+                                val condition = parser.getAttributeValue(null, "condition")?.trim().orEmpty()
+                                if(band in listOf("80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m") &&
+                                    period.equals("day", true) && condition.isNotBlank()) {
+                                    val label = condition.replaceFirstChar { if(it.isLowerCase()) it.titlecase(Locale.CANADA) else it.toString() }
+                                    found.add("$band: $label")
+                                }
+                            }
+                            event = parser.next()
+                        }
+                        found.distinct()
+                    } catch(_:Exception) { emptyList<String>() }
+
+                    (listOf(kpLine) + bandLines.ifEmpty { listOf("Ham-band conditions unavailable") })
+                        .joinToString("\n")
                 }
             } catch(_:Exception) { "Solar weather temporarily unavailable" }
 
@@ -940,7 +970,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             WeatherMiniCard("🌙 MOON", moon.substringBefore("\n"), Color(0xFFB39DDB), Modifier.weight(1f))
-            WeatherMiniCard("☀️ SOLAR / RADIO", solar, Color(0xFFFFD54F), Modifier.weight(1f))
+            WeatherMiniCard("☀️ SOLAR / RADIO", solar, Color(0xFFFFD54F), Modifier.weight(1f), ticker = true)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             WeatherMiniCard("🌦️ RIGHT NOW", now, Color(0xFF42A5F5), Modifier.weight(1f))
@@ -965,7 +995,13 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
 
 
 @Composable
-fun WeatherMiniCard(title: String, body: String, accent: Color, modifier: Modifier = Modifier) {
+fun WeatherMiniCard(
+    title: String,
+    body: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    ticker: Boolean = false
+) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
@@ -974,7 +1010,45 @@ fun WeatherMiniCard(title: String, body: String, accent: Color, modifier: Modifi
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, color = accent, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
-            Text(body, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+            if (ticker) {
+                SolarBandTicker(body)
+            } else {
+                Text(body, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+            }
+        }
+    }
+}
+
+@Composable
+fun SolarBandTicker(text: String) {
+    val lines = remember(text) { text.lines().map { it.trim() }.filter { it.isNotBlank() } }
+    var currentLine by remember(text) { mutableStateOf(0) }
+
+    LaunchedEffect(lines) {
+        currentLine = 0
+        while (lines.size > 1) {
+            kotlinx.coroutines.delay(3200L)
+            currentLine = (currentLine + 1) % lines.size
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth().height(38.dp), contentAlignment = Alignment.CenterStart) {
+        AnimatedContent(
+            targetState = lines.getOrElse(currentLine) { "Waiting for band conditions…" },
+            transitionSpec = {
+                (slideInVertically(animationSpec = tween(300)) { height -> height / 2 } + fadeIn(animationSpec = tween(300))) togetherWith
+                    (slideOutVertically(animationSpec = tween(300)) { height -> -height } + fadeOut(animationSpec = tween(300)))
+            },
+            label = "solarBandTicker"
+        ) { line ->
+            Text(
+                text = line,
+                modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
+                color = Color.White,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }
