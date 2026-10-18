@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -72,7 +74,8 @@ data class Tile(
     val subtitle: String,
     val url: String?,
     val accent: Color,
-    val chat: Boolean = false
+    val chat: Boolean = false,
+    val weather: Boolean = false
 )
 
 class MainActivity : ComponentActivity() {
@@ -131,6 +134,8 @@ fun GrandLakeAlertApp() {
     var showChat by remember {
         mutableStateOf(false)
     }
+
+    var showWeather by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         weather = try {
@@ -560,7 +565,8 @@ fun GrandLakeAlertApp() {
             icon = "🌦️",
             subtitle = weather,
             url = null,
-            accent = Color(0xFF42A5F5)
+            accent = Color(0xFF42A5F5),
+            weather = true
         ),
 
         Tile(
@@ -651,9 +657,9 @@ fun GrandLakeAlertApp() {
     ) {
 
         if (showChat) {
-            OfflineChatScreen(
-                onBack = { showChat = false }
-            )
+            OfflineChatScreen(onBack = { showChat = false })
+        } else if (showWeather) {
+            WeatherDashboardScreen(onBack = { showWeather = false })
         } else {
             Scaffold(
 
@@ -772,9 +778,8 @@ fun GrandLakeAlertApp() {
                                 AlertTile(
                                     tile = tile,
                                     context = context,
-                                    onChat = {
-                                        if (tile.chat) showChat = true
-                                    }
+                                    onChat = { if (tile.chat) showChat = true },
+                                    onWeather = { if (tile.weather) showWeather = true }
                                 )
                             }
                         }
@@ -785,6 +790,133 @@ fun GrandLakeAlertApp() {
         }
     }
 }
+
+
+@Composable
+fun WeatherDashboardScreen(onBack: () -> Unit) {
+    var now by remember { mutableStateOf("Loading current conditions…") }
+    var tomorrow by remember { mutableStateOf("Loading tomorrow’s forecast…") }
+    var alerts by remember { mutableStateOf("Checking Environment Canada…") }
+    var frost by remember { mutableStateOf("Checking overnight frost risk…") }
+    var moon by remember { mutableStateOf("Checking moon phase…") }
+    var solar by remember { mutableStateOf("Checking solar weather…") }
+    var updated by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val data = withContext(Dispatchers.IO) {
+                    val url = "https://api.open-meteo.com/v1/forecast?latitude=46.0&longitude=-66.0" +
+                        "&current=temperature_2m,apparent_temperature,wind_speed_10m,relative_humidity_2m,weather_code" +
+                        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,moon_phase" +
+                        "&timezone=America%2FMoncton&forecast_days=2"
+                    val conn = URL(url).openConnection().apply { connectTimeout=10000; readTimeout=10000 }
+                    val j = JSONObject(conn.getInputStream().bufferedReader().use { it.readText() })
+                    val c=j.getJSONObject("current"); val d=j.getJSONObject("daily")
+                    val hi=d.optJSONArray("temperature_2m_max"); val lo=d.optJSONArray("temperature_2m_min")
+                    val rain=d.optJSONArray("precipitation_probability_max"); val rise=d.optJSONArray("sunrise")
+                    val set=d.optJSONArray("sunset"); val phase=d.optJSONArray("moon_phase")
+                    fun n(v:Double)=if(v.isFinite()) v.toInt().toString() else "—"
+                    fun clock(v:String?)=try { if(v.isNullOrBlank()) "—" else SimpleDateFormat("yyyy-MM-dd'T'HH:mm",Locale.CANADA).parse(v)?.let { SimpleDateFormat("h:mm a",Locale.CANADA).format(it) } ?: "—" } catch(_:Exception){"—"}
+                    val code=c.optInt("weather_code",-1)
+                    val desc=when(code){0->"Clear sky";1->"Mainly clear";2->"Partly cloudy";3->"Overcast";45,48->"Fog";51,53,55->"Drizzle";56,57->"Freezing drizzle";61,63,65->"Rain";66,67->"Freezing rain";71,73,75,77->"Snow";80,81,82->"Rain showers";85,86->"Snow showers";95,96,99->"Thunderstorm";else->"Conditions available"}
+                    val low=lo?.optDouble(1,Double.NaN)?:Double.NaN
+                    val ph=phase?.optDouble(0,Double.NaN)?:Double.NaN
+                    val p=if(ph.isFinite()) ((ph%1.0)+1.0)%1.0 else -1.0
+                    val moonName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon";p<0.22->"Waxing Crescent";p<0.28->"First Quarter";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter";else->"Waning Crescent"}
+                    val frostText=when { !low.isFinite()->"Frost estimate unavailable";low<=0->"❄️ Frost likely • forecast low \${n(low)}°C";low<=2->"⚠️ Frost possible • forecast low \${n(low)}°C";else->"Low frost risk • forecast low \${n(low)}°C" }
+                    listOf(
+                        "\${desc}\\n\${n(c.optDouble("temperature_2m",Double.NaN))}°C • Feels like \${n(c.optDouble("apparent_temperature",Double.NaN))}°C\\nWind \${n(c.optDouble("wind_speed_10m",Double.NaN))} km/h • Humidity \${n(c.optDouble("relative_humidity_2m",Double.NaN))}%",
+                        "High \${n(hi?.optDouble(1,Double.NaN)?:Double.NaN)}°C / Low \${n(low)}°C\\nPrecipitation chance: \${rain?.optInt(1,-1)?.let { if(it>=0) "$it%" else "—" } ?: "—"}",
+                        "Sunrise \${clock(rise?.optString(0))} • Sunset \${clock(set?.optString(0))}",
+                        moonName,
+                        frostText
+                    )
+                }
+                now=data[0]; tomorrow=data[1]; moon=data[3]+"\n"+data[2]; frost=data[4]
+            } catch(_:Exception) {
+                now="Weather data unavailable"; tomorrow="Forecast unavailable"
+                moon="Moon/daylight data unavailable"; frost="Frost estimate unavailable"
+            }
+
+            alerts = try {
+                withContext(Dispatchers.IO) {
+                    val conn=URL("https://weather.gc.ca/rss/battleboard/nb14_e.xml").openConnection().apply { connectTimeout=8000; readTimeout=8000 }
+                    val parser=XmlPullParserFactory.newInstance().newPullParser()
+                    parser.setInput(conn.getInputStream(),"UTF-8")
+                    var event=parser.eventType; var inside=false; var inTitle=false; var title=""
+                    val found=mutableListOf<String>()
+                    while(event!=XmlPullParser.END_DOCUMENT) {
+                        when(event) {
+                            XmlPullParser.START_TAG -> when(parser.name.lowercase()) { "entry","item"->inside=true; "title"->if(inside){inTitle=true;title=""} }
+                            XmlPullParser.TEXT -> if(inside&&inTitle) title+=parser.text
+                            XmlPullParser.END_TAG -> when(parser.name.lowercase()) {
+                                "title"->{ if(inside&&inTitle){val t=title.replace(Regex("\\\\s+")," ").trim();if(t.isNotBlank()&&Regex("warning|watch|advisory",RegexOption.IGNORE_CASE).containsMatchIn(t)&&!t.contains("no watches or warnings",true))found.add(t)};inTitle=false}
+                                "entry","item"->inside=false
+                            }
+                        }
+                        event=parser.next()
+                    }
+                    if(found.isEmpty()) "No active warning title found • check official page to confirm" else found.distinct().take(3).joinToString("\\n")
+                }
+            } catch(_:Exception) { "Alert feed unavailable • check official Environment Canada page" }
+
+            solar = try {
+                withContext(Dispatchers.IO) {
+                    val conn=URL("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").openConnection().apply { connectTimeout=8000; readTimeout=8000 }
+                    val arr=org.json.JSONArray(conn.getInputStream().bufferedReader().use { it.readText() })
+                    var kp:String?=null
+                    for(i in arr.length()-1 downTo 0) {
+                        val row=arr.optJSONObject(i)?:continue
+                        val value=row.opt("Kp")?:row.opt("kp")
+                        if(value!=null&&value.toString().isNotBlank()){kp=value.toString();break}
+                    }
+                    val k=kp?.toDoubleOrNull()
+                    when {kp==null->"K-index data unavailable";k==null->"Latest planetary K-index: $kp";k>=5->"Kp $kp • Geomagnetic storm conditions may affect radio and aurora activity";k>=4->"Kp $kp • Active geomagnetic conditions";else->"Kp $kp • Geomagnetic activity currently quiet"}
+                }
+            } catch(_:Exception) { "Solar weather temporarily unavailable" }
+
+            updated="Updated "+SimpleDateFormat("h:mm a",Locale.CANADA).format(Date())
+            kotlinx.coroutines.delay(15*60*1000L)
+        }
+    }
+    val context=LocalContext.current
+    Scaffold(
+        containerColor=Color(0xFF101214),
+        topBar={TopAppBar(
+            title={Column { Text("Weather",style=MaterialTheme.typography.titleLarge);Text("GRAND LAKE, NEW BRUNSWICK",color=Color(0xFF69F0AE),style=MaterialTheme.typography.labelSmall) }},
+            navigationIcon={TextButton(onClick=onBack){Text("← BACK",color=Color(0xFF69F0AE))}},
+            colors=TopAppBarDefaults.topAppBarColors(containerColor=Color(0xFF181B1F),titleContentColor=Color.White)
+        )}
+    ){padding->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+            WeatherInfoCard("NOW","🌦️",now,Color(0xFF42A5F5))
+            WeatherInfoCard("TOMORROW","🌤️",tomorrow,Color(0xFF80CBC4))
+            WeatherInfoCard("WEATHER ALERTS","⚠️",alerts,Color(0xFFFFB74D))
+            WeatherInfoCard("OVERNIGHT FROST","❄️",frost,Color(0xFF90CAF9))
+            WeatherInfoCard("MOON & DAYLIGHT","🌙",moon,Color(0xFFB39DDB))
+            WeatherInfoCard("SOLAR / RADIO WEATHER","☀️",solar,Color(0xFFFFD54F))
+            Text("$updated • Forecast estimates are not official warnings",color=Color.Gray,style=MaterialTheme.typography.labelSmall)
+            TextButton(onClick={try{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://weather.gc.ca/city/pages/nb-14_metric_e.html")))}catch(_:Exception){}},modifier=Modifier.fillMaxWidth()){Text("OPEN OFFICIAL ENVIRONMENT CANADA PAGE",color=Color(0xFF69F0AE))}
+        }
+    }
+}
+
+@Composable
+fun WeatherInfoCard(title:String,icon:String,body:String,accent:Color){
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit){kotlinx.coroutines.delay(100);visible=true}
+    AnimatedVisibility(visible=visible,enter=fadeIn(tween(350))+slideInVertically(initialOffsetY={it/5},animationSpec=tween(350))){
+        Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF181B1F)),elevation=CardDefaults.cardElevation(defaultElevation=2.dp)){
+            Column(Modifier.padding(horizontal=15.dp,vertical=13.dp)){
+                Row(verticalAlignment=Alignment.CenterVertically){Text(icon,style=MaterialTheme.typography.titleMedium);Spacer(Modifier.size(8.dp));Text(title,color=accent,style=MaterialTheme.typography.labelLarge)}
+                Spacer(Modifier.height(7.dp))
+                AnimatedContent(targetState=body,transitionSpec={fadeIn(tween(250)) togetherWith fadeOut(tween(180))},label="weatherCardContent"){text->Text(text,color=Color.White,style=MaterialTheme.typography.bodyMedium)}
+            }
+        }
+    }
+}
+
 
 @Composable
 fun StatusIndicator() {
@@ -972,7 +1104,8 @@ fun DateTimeBanner() {
 fun AlertTile(
     tile: Tile,
     context: android.content.Context,
-    onChat: () -> Unit
+    onChat: () -> Unit,
+    onWeather: () -> Unit
 ) {
 
     Card(
@@ -1063,7 +1196,11 @@ fun AlertTile(
                 modifier = Modifier.weight(1f)
             )
 
-            if (tile.chat) {
+            if (tile.weather) {
+                TextButton(onClick = onWeather, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    Text("OPEN WEATHER", color = tile.accent, maxLines = 1, softWrap = false)
+                }
+            } else if (tile.chat) {
                 TextButton(
                     onClick = onChat,
                     modifier = Modifier
