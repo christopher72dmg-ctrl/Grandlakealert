@@ -1169,7 +1169,7 @@ fun AlertTile(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(178.dp),
+            .height(188.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF181B1F)
@@ -1208,7 +1208,28 @@ fun AlertTile(
                     color = tile.accent,
                     maxLines = 2
                 )
+            }
 
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopStart) {
+                if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
+                    AircraftTicker(text = tile.subtitle, compact = true)
+                } else {
+                    Text(
+                        text = tile.subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.LightGray,
+                        maxLines = 4
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (tile.weather) {
                     TextButton(
                         onClick = onWeather,
@@ -1256,19 +1277,6 @@ fun AlertTile(
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(7.dp))
-
-            if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
-                AircraftTicker(text = tile.subtitle, compact = true)
-            } else {
-                Text(
-                    text = tile.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.LightGray,
-                    maxLines = 4
-                )
             }
         }
     }
