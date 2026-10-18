@@ -700,6 +700,8 @@ fun GrandLakeAlertApp() {
                     },
 
                     actions = {
+                        StatusIndicator()
+                        Spacer(modifier = Modifier.size(8.dp))
                         TextButton(onClick = { showSources = true }) {
                             Text(
                                 text = "ⓘ",
@@ -735,30 +737,7 @@ fun GrandLakeAlertApp() {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-
-                        Text(
-                            text = "Live local information",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.LightGray
-                        )
-                    }
-
-                    StatusIndicator()
-                }
-
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
+                Spacer(modifier = Modifier.height(4.dp))
 
                 LazyVerticalGrid(
 
