@@ -109,6 +109,10 @@ fun GrandLakeAlertApp() {
         mutableStateOf("Checking NB wildfire information…")
     }
 
+    var aircraftInfo by remember {
+        mutableStateOf("Loading nearby aircraft…")
+    }
+
     var showTiles by remember {
         mutableStateOf(false)
     }
@@ -383,6 +387,69 @@ fun GrandLakeAlertApp() {
     }
 
     LaunchedEffect(Unit) {
+        while (true) {
+            aircraftInfo = try {
+                withContext(Dispatchers.IO) {
+                    val connection = URL(
+                        "https://api.adsb.lol/v2/lat/46.0/lon/-66.0/dist/50"
+                    ).openConnection().apply {
+                        connectTimeout = 8000
+                        readTimeout = 8000
+                    }
+
+                    val json = JSONObject(
+                        connection.getInputStream().bufferedReader().use { it.readText() }
+                    )
+                    val aircraft = json.optJSONArray("ac")
+                    val reports = mutableListOf<Pair<Double, String>>()
+
+                    if (aircraft != null) {
+                        for (i in 0 until aircraft.length()) {
+                            val plane = aircraft.optJSONObject(i) ?: continue
+                            val seen = plane.optDouble("seen_pos", 9999.0)
+                            if (seen > 120.0) continue
+
+                            val callsign = plane.optString("flight", "").trim()
+                                .ifBlank { plane.optString("r", "").trim() }
+                                .ifBlank { "Unknown aircraft" }
+                            val type = plane.optString("t", "").trim()
+                            val altitudeValue = plane.opt("alt_baro")
+                            val altitude = if (altitudeValue is Number) {
+                                "${altitudeValue.toInt()} ft"
+                            } else if (altitudeValue?.toString() == "ground") {
+                                "on ground"
+                            } else {
+                                "altitude n/a"
+                            }
+                            val distance = plane.optDouble("dst", -1.0)
+                            val distanceText = if (distance >= 0.0) {
+                                "${distance.toInt()} nm"
+                            } else {
+                                "distance n/a"
+                            }
+                            val typeText = if (type.isNotBlank()) " $type" else ""
+                            val line = "$callsign$typeText • $altitude • $distanceText"
+                            reports.add(seen to line)
+                        }
+                    }
+
+                    val nearest = reports.sortedBy { it.first }.take(2)
+                    if (nearest.isEmpty()) {
+                        "No recent aircraft positions detected\nCoverage depends on nearby receivers"
+                    } else {
+                        "Nearby aircraft • refreshes each minute\n" +
+                            nearest.joinToString("\n") { it.second }
+                    }
+                }
+            } catch (_: Exception) {
+                "Live aircraft data unavailable\nTap OPEN SOURCE to view the map"
+            }
+
+            kotlinx.coroutines.delay(60_000)
+        }
+    }
+
+    LaunchedEffect(Unit) {
 
         kotlinx.coroutines.delay(250)
 
@@ -457,7 +524,7 @@ fun GrandLakeAlertApp() {
         Tile(
             title = "Aircraft Overhead",
             icon = "✈️",
-            subtitle = "Live aircraft map and aircraft list near Grand Lake",
+            subtitle = aircraftInfo,
             url = "https://globe.adsb.lol/?lat=46.0&lon=-66.0&zoom=8",
             accent = Color(0xFF42A5F5)
         ),
