@@ -24,6 +24,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -772,7 +773,7 @@ fun GrandLakeAlertApp() {
 
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(((tiles.size + 1) / 2 * 142).dp),
+                        .height(((tiles.size + 1) / 2 * 152).dp),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(12.dp),
