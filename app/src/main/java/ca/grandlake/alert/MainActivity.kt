@@ -896,18 +896,36 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val conn=URL("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").openConnection().apply { connectTimeout=8000; readTimeout=8000 }
                     val arr=org.json.JSONArray(conn.getInputStream().bufferedReader().use { it.readText() })
                     var kp:String?=null
-                    // NOAA returns a JSON table with the column names in its first row.
-                    val headers=arr.optJSONArray(0)
-                    val kpIndex=if(headers!=null) (0 until headers.length()).firstOrNull { headers.optString(it).equals("Kp",true) } else null
-                    if(kpIndex!=null) {
-                        for(i in arr.length()-1 downTo 1) {
-                            val row=arr.optJSONArray(i)?:continue
-                            val value=row.optString(kpIndex).trim()
-                            if(value.isNotBlank() && value!="null") { kp=value; break }
+
+                    // NOAA changed this feed to an array of named objects in 2026.
+                    // Read the current format first, while retaining support for the older table format.
+                    for(i in arr.length()-1 downTo 0) {
+                        val row=arr.optJSONObject(i) ?: continue
+                        val value=row.optString("Kp", row.optString("kp", "")).trim()
+                        if(value.isNotBlank() && value!="null") { kp=value; break }
+                    }
+
+                    if(kp==null) {
+                        val headers=arr.optJSONArray(0)
+                        val kpIndex=if(headers!=null) (0 until headers.length()).firstOrNull { headers.optString(it).equals("Kp",true) } else null
+                        if(kpIndex!=null) {
+                            for(i in arr.length()-1 downTo 1) {
+                                val row=arr.optJSONArray(i)?:continue
+                                val value=row.optString(kpIndex).trim()
+                                if(value.isNotBlank() && value!="null") { kp=value; break }
+                            }
                         }
                     }
+
                     val k=kp?.toDoubleOrNull()
-                    when {kp==null->"K-index data unavailable";k==null->"Latest planetary K-index: $kp";k!=null && k>=5->"Kp $kp • Geomagnetic storm conditions may affect radio and aurora activity";k!=null && k>=4->"Kp $kp • Active geomagnetic conditions";else->"Kp $kp • Geomagnetic activity currently quiet"}
+                    val kpText=k?.let { String.format(Locale.CANADA, "%.1f", it) } ?: kp
+                    when {
+                        kp==null -> "K-index data unavailable"
+                        k==null -> "Latest planetary K-index: $kp"
+                        k>=5 -> "Kp $kpText • Storm conditions may affect HF radio and aurora activity"
+                        k>=4 -> "Kp $kpText • Active geomagnetic conditions"
+                        else -> "Kp $kpText • Geomagnetic activity quiet"
+                    }
                 }
             } catch(_:Exception) { "Solar weather temporarily unavailable" }
 
