@@ -658,8 +658,6 @@ fun GrandLakeAlertApp() {
 
         if (showChat) {
             OfflineChatScreen(onBack = { showChat = false })
-        } else if (showWeather) {
-            WeatherDashboardScreen(onBack = { showWeather = false })
         } else {
             Scaffold(
 
@@ -699,6 +697,7 @@ fun GrandLakeAlertApp() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp)
             ) {
 
@@ -745,7 +744,9 @@ fun GrandLakeAlertApp() {
 
                     columns = GridCells.Fixed(2),
 
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(((tiles.size + 1) / 2 * 247).dp),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(12.dp),
@@ -779,7 +780,7 @@ fun GrandLakeAlertApp() {
                                     tile = tile,
                                     context = context,
                                     onChat = { if (tile.chat) showChat = true },
-                                    onWeather = { if (tile.weather) showWeather = true }
+                                    onWeather = { if (tile.weather) showWeather = !showWeather }
                                 )
                             }
                         }
@@ -882,15 +883,15 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         }
     }
     val context=LocalContext.current
-    Scaffold(
-        containerColor=Color(0xFF101214),
-        topBar={TopAppBar(
-            title={Column { Text("Weather",style=MaterialTheme.typography.titleLarge);Text("GRAND LAKE, NEW BRUNSWICK",color=Color(0xFF69F0AE),style=MaterialTheme.typography.labelSmall) }},
-            navigationIcon={TextButton(onClick=onBack){Text("← BACK",color=Color(0xFF69F0AE))}},
-            colors=TopAppBarDefaults.topAppBarColors(containerColor=Color(0xFF181B1F),titleContentColor=Color.White)
-        )}
-    ){padding->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { -it / 8 }, animationSpec = tween(300))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("WEATHER DETAILS", color = Color(0xFF69F0AE), style = MaterialTheme.typography.labelLarge)
             WeatherInfoCard("NOW","🌦️",now,Color(0xFF42A5F5))
             WeatherInfoCard("TOMORROW","🌤️",tomorrow,Color(0xFF80CBC4))
             WeatherInfoCard("WEATHER ALERTS","⚠️",alerts,Color(0xFFFFB74D))
