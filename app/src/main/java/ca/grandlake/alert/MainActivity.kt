@@ -117,6 +117,10 @@ fun GrandLakeAlertApp() {
         mutableStateOf("Loading nearby aircraft…")
     }
 
+    var outageInfo by remember {
+        mutableStateOf("Checking NB Power outage information…")
+    }
+
     var showTiles by remember {
         mutableStateOf(false)
     }
@@ -392,6 +396,88 @@ fun GrandLakeAlertApp() {
 
     LaunchedEffect(Unit) {
         while (true) {
+            outageInfo = try {
+                withContext(Dispatchers.IO) {
+                    val connection = URL(
+                        "https://www.nbpower.com/Open/Outages.aspx?lang=en"
+                    ).openConnection().apply {
+                        connectTimeout = 10000
+                        readTimeout = 10000
+                        setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
+                    }
+
+                    val html = connection.getInputStream().bufferedReader().use { it.readText() }
+
+                    fun cleanCell(value: String): String {
+                        return value
+                            .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
+                            .replace(Regex("(?is)<style[^>]*>.*?</style>"), " ")
+                            .replace(Regex("(?is)<[^>]*>"), " ")
+                            .replace("&nbsp;", " ")
+                            .replace("&#160;", " ")
+                            .replace("&amp;", "&")
+                            .replace("&gt;", ">")
+                            .replace("&lt;", "<")
+                            .replace("&quot;", "\"")
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+                    }
+
+                    val rows = Regex("(?is)<tr\\b[^>]*>(.*?)</tr>")
+                        .findAll(html)
+                        .map { row ->
+                            Regex("(?is)<t[dh]\\b[^>]*>(.*?)</t[dh]>")
+                                .findAll(row.groupValues[1])
+                                .map { cleanCell(it.groupValues[1]) }
+                                .toList()
+                        }
+                        .filter { it.isNotEmpty() }
+                        .toList()
+
+                    val summary = rows.firstOrNull {
+                        it.firstOrNull()?.contains("Summary", ignoreCase = true) == true
+                    }
+                    val localRegion = rows.firstOrNull {
+                        it.firstOrNull()?.contains("Central York Sunbury", ignoreCase = true) == true
+                    }
+
+                    fun outageLine(label: String, cells: List<String>?): String? {
+                        if (cells == null || cells.size < 3) return null
+                        val numbers = cells.drop(1).mapNotNull { cell ->
+                            Regex("^\\d+$").find(cell)?.value
+                        }
+                        if (numbers.size < 2) return null
+                        return "$label: ${numbers[0]} outage(s) • ${numbers[1]} customers affected"
+                    }
+
+                    val updatedMatch = Regex(
+                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\\n]{4,50})"
+                    ).find(html)
+                    val updatedText = updatedMatch?.groupValues?.getOrNull(1)
+                        ?.let { cleanCell(it) }
+                        ?.takeIf { it.isNotBlank() }
+
+                    val lines = mutableListOf<String>()
+                    outageLine("NB-wide", summary)?.let { lines.add(it) }
+                    outageLine("Central York Sunbury", localRegion)?.let { lines.add(it) }
+                    if (updatedText != null) lines.add("NB Power updated: $updatedText")
+
+                    if (lines.isEmpty()) {
+                        "NB Power page reachable\nOpen source for current outage details"
+                    } else {
+                        lines.joinToString("\n")
+                    }
+                }
+            } catch (_: Exception) {
+                "NB Power data unavailable\nTap OPEN SOURCE to check the official map"
+            }
+
+            kotlinx.coroutines.delay(10 * 60 * 1000L)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
             aircraftInfo = try {
                 withContext(Dispatchers.IO) {
                     val connection = URL(
@@ -520,7 +606,7 @@ fun GrandLakeAlertApp() {
         Tile(
             title = "Power Outages",
             icon = "⚡",
-            subtitle = "NB Power outage map and restoration updates",
+            subtitle = outageInfo,
             url = "https://www.nbpower.com/Open/Outages.aspx",
             accent = Color(0xFFFFC107)
         ),
@@ -822,7 +908,7 @@ fun AlertTile(
                 modifier = Modifier.height(6.dp)
             )
 
-            if (tile.title == "Aircraft Overhead") {
+            if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
                 AircraftTicker(text = tile.subtitle)
             } else {
                 Text(
