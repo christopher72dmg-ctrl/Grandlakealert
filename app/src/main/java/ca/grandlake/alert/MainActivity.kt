@@ -447,6 +447,22 @@ fun GrandLakeAlertApp() {
             accent = Color(0xFFAB47BC)
         ),
         Tile(
+            title = "Power Outages",
+            icon = "⚡",
+            subtitle = "NB Power outage map and restoration updates",
+            url = "https://www.nbpower.com/Open/Outages.aspx",
+            accent = Color(0xFFFFC107)
+        ),
+
+        Tile(
+            title = "Aircraft Overhead",
+            icon = "✈️",
+            subtitle = "Live aircraft map and aircraft list near Grand Lake",
+            url = "https://globe.adsb.lol/?lat=46.0&lon=-66.0&zoom=8",
+            accent = Color(0xFF42A5F5)
+        ),
+
+        Tile(
             title = "Offline Chat",
             icon = "📡",
             subtitle = "Nearby phone chat • No Internet required",
