@@ -722,7 +722,6 @@ fun GrandLakeAlertApp() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp)
             ) {
 
@@ -773,7 +772,7 @@ fun GrandLakeAlertApp() {
 
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(((tiles.size + 1) / 2 * 152).dp),
+                        .weight(1f),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(12.dp),
