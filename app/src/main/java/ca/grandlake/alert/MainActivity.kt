@@ -462,7 +462,7 @@ fun GrandLakeAlertApp() {
                     }
 
                     val updatedMatch = Regex(
-                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\\n]{4,50})"
+                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\n]{4,50})"
                     ).find(html)
                     val updatedText = updatedMatch?.groupValues?.getOrNull(1)
                         ?.let { cleanCell(it) }
@@ -824,11 +824,11 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val ph=phase?.optDouble(0,Double.NaN)?:Double.NaN
                     val p=if(ph.isFinite()) ((ph%1.0)+1.0)%1.0 else -1.0
                     val moonName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon";p<0.22->"Waxing Crescent";p<0.28->"First Quarter";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter";else->"Waning Crescent"}
-                    val frostText=when { !low.isFinite()->"Frost estimate unavailable";low<=0->"❄️ Frost likely • forecast low \${n(low)}°C";low<=2->"⚠️ Frost possible • forecast low \${n(low)}°C";else->"Low frost risk • forecast low \${n(low)}°C" }
+                    val frostText=when { !low.isFinite()->"Frost estimate unavailable";low<=0->"❄️ Frost likely • forecast low ${n(low)}°C";low<=2->"⚠️ Frost possible • forecast low ${n(low)}°C";else->"Low frost risk • forecast low ${n(low)}°C" }
                     listOf(
-                        "\${desc}\\n\${n(c.optDouble("temperature_2m",Double.NaN))}°C • Feels like \${n(c.optDouble("apparent_temperature",Double.NaN))}°C\\nWind \${n(c.optDouble("wind_speed_10m",Double.NaN))} km/h • Humidity \${n(c.optDouble("relative_humidity_2m",Double.NaN))}%",
-                        "High \${n(hi?.optDouble(1,Double.NaN)?:Double.NaN)}°C / Low \${n(low)}°C\\nPrecipitation chance: \${rain?.optInt(1,-1)?.let { if(it>=0) "$it%" else "—" } ?: "—"}",
-                        "Sunrise \${clock(rise?.optString(0))} • Sunset \${clock(set?.optString(0))}",
+                        "${desc}\n${n(c.optDouble("temperature_2m",Double.NaN))}°C • Feels like ${n(c.optDouble("apparent_temperature",Double.NaN))}°C\nWind ${n(c.optDouble("wind_speed_10m",Double.NaN))} km/h • Humidity ${n(c.optDouble("relative_humidity_2m",Double.NaN))}%",
+                        "High ${n(hi?.optDouble(1,Double.NaN)?:Double.NaN)}°C / Low ${n(low)}°C\nPrecipitation chance: ${rain?.optInt(1,-1)?.let { if(it>=0) "$it%" else "—" } ?: "—"}",
+                        "Sunrise ${clock(rise?.optString(0))} • Sunset ${clock(set?.optString(0))}",
                         moonName,
                         frostText
                     )
@@ -851,13 +851,13 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                             XmlPullParser.START_TAG -> when(parser.name.lowercase()) { "entry","item"->inside=true; "title"->if(inside){inTitle=true;title=""} }
                             XmlPullParser.TEXT -> if(inside&&inTitle) title+=parser.text
                             XmlPullParser.END_TAG -> when(parser.name.lowercase()) {
-                                "title"->{ if(inside&&inTitle){val t=title.replace(Regex("\\\\s+")," ").trim();if(t.isNotBlank()&&Regex("warning|watch|advisory",RegexOption.IGNORE_CASE).containsMatchIn(t)&&!t.contains("no watches or warnings",true))found.add(t)};inTitle=false}
+                                "title"->{ if(inside&&inTitle){val t=title.replace(Regex("\\s+")," ").trim();if(t.isNotBlank()&&Regex("warning|watch|advisory",RegexOption.IGNORE_CASE).containsMatchIn(t)&&!t.contains("no watches or warnings",true))found.add(t)};inTitle=false}
                                 "entry","item"->inside=false
                             }
                         }
                         event=parser.next()
                     }
-                    if(found.isEmpty()) "No active warning title found • check official page to confirm" else found.distinct().take(3).joinToString("\\n")
+                    if(found.isEmpty()) "No active warning title found • check official page to confirm" else found.distinct().take(3).joinToString("\n")
                 }
             } catch(_:Exception) { "Alert feed unavailable • check official Environment Canada page" }
 
@@ -872,7 +872,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                         if(value!=null&&value.toString().isNotBlank()){kp=value.toString();break}
                     }
                     val k=kp?.toDoubleOrNull()
-                    when {kp==null->"K-index data unavailable";k==null->"Latest planetary K-index: $kp";k>=5->"Kp $kp • Geomagnetic storm conditions may affect radio and aurora activity";k>=4->"Kp $kp • Active geomagnetic conditions";else->"Kp $kp • Geomagnetic activity currently quiet"}
+                    when {kp==null->"K-index data unavailable";k==null->"Latest planetary K-index: $kp";k!=null && k>=5->"Kp $kp • Geomagnetic storm conditions may affect radio and aurora activity";k!=null && k>=4->"Kp $kp • Active geomagnetic conditions";else->"Kp $kp • Geomagnetic activity currently quiet"}
                 }
             } catch(_:Exception) { "Solar weather temporarily unavailable" }
 
