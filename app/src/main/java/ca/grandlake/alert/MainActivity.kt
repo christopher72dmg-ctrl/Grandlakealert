@@ -62,6 +62,9 @@ import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class Tile(
     val title: String,
@@ -697,6 +700,10 @@ fun GrandLakeAlertApp() {
                     modifier = Modifier.height(10.dp)
                 )
 
+                DateTimeBanner()
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -836,6 +843,130 @@ fun StatusIndicator() {
         )
     }
 }
+
+@Composable
+fun DateTimeBanner() {
+    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+
+    val dateText = remember(currentTime) {
+        SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.CANADA).format(Date(currentTime))
+    }
+    val time12 = remember(currentTime) {
+        SimpleDateFormat("h:mm:ss a", Locale.CANADA).format(Date(currentTime))
+    }
+    val time24 = remember(currentTime) {
+        SimpleDateFormat("HH:mm:ss", Locale.CANADA).format(Date(currentTime))
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = "LOCAL DATE & TIME",
+                color = Color(0xFF69F0AE),
+                style = MaterialTheme.typography.labelSmall
+            )
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            AnimatedContent(
+                targetState = dateText,
+                transitionSpec = {
+                    (slideInVertically(animationSpec = tween(300)) { height -> height / 2 } +
+                        fadeIn(animationSpec = tween(300))) togetherWith
+                        (slideOutVertically(animationSpec = tween(300)) { height -> -height / 2 } +
+                            fadeOut(animationSpec = tween(300)))
+                },
+                label = "dateTicker"
+            ) { date ->
+                Text(
+                    text = date,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "12-HOUR",
+                        color = Color.LightGray,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    AnimatedContent(
+                        targetState = time12,
+                        transitionSpec = {
+                            (slideInVertically(animationSpec = tween(220)) { height -> height / 2 } +
+                                fadeIn(animationSpec = tween(220))) togetherWith
+                                (slideOutVertically(animationSpec = tween(220)) { height -> -height / 2 } +
+                                    fadeOut(animationSpec = tween(220)))
+                        },
+                        label = "twelveHourClock"
+                    ) { time ->
+                        Text(
+                            text = time,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "24-HOUR",
+                        color = Color.LightGray,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    AnimatedContent(
+                        targetState = time24,
+                        transitionSpec = {
+                            (slideInVertically(animationSpec = tween(220)) { height -> height / 2 } +
+                                fadeIn(animationSpec = tween(220))) togetherWith
+                                (slideOutVertically(animationSpec = tween(220)) { height -> -height / 2 } +
+                                    fadeOut(animationSpec = tween(220)))
+                        },
+                        label = "twentyFourHourClock"
+                    ) { time ->
+                        Text(
+                            text = time,
+                            color = Color(0xFF69F0AE),
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun AlertTile(
