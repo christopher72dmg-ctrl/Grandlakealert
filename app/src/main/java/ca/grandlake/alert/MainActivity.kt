@@ -792,6 +792,7 @@ fun GrandLakeAlertApp() {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeatherDashboardScreen(onBack: () -> Unit) {
     var now by remember { mutableStateOf("Loading current conditions…") }
