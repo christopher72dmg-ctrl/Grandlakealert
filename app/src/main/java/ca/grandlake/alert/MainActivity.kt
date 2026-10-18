@@ -70,6 +70,10 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.net.URLEncoder
 
 data class Tile(
     val title: String,
@@ -803,6 +807,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     var moon by remember { mutableStateOf("Checking moon phase…") }
     var solar by remember { mutableStateOf("Checking solar weather…") }
     var updated by remember { mutableStateOf("") }
+    var tideTicker by remember { mutableStateOf("Loading official Saint John tide predictions…") }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -933,6 +938,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 }
             } catch(_:Exception) { "Solar weather temporarily unavailable" }
 
+            tideTicker = try { withContext(Dispatchers.IO) { fetchTideTicker() } } catch (_: Exception) { "Tide predictions temporarily unavailable • tap TIDES for official times" }
             updated="Updated "+SimpleDateFormat("h:mm a",Locale.CANADA).format(Date())
             kotlinx.coroutines.delay(15*60*1000L)
         }
@@ -968,7 +974,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
             ) {
                 Text("🌊 COASTAL TIDES", color = Color(0xFF80CBC4), style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.size(8.dp))
-                Text("Saint John reference • high / low predictions", modifier = Modifier.weight(1f), color = Color.LightGray, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                Text(tideTicker, modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE), color = Color.LightGray, style = MaterialTheme.typography.bodySmall, maxLines = 1, softWrap = false)
                 TextButton(
                     onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tides.gc.ca/en/stations/00065/predictions"))) } catch (_: Exception) {} },
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
@@ -1330,4 +1336,82 @@ fun AircraftTicker(text: String, compact: Boolean = false) {
             )
         }
     }
+}
+
+
+private fun fetchTideTicker(): String {
+    val zone = ZoneId.of("America/Moncton")
+    val now = Instant.now()
+    val from = now.minusSeconds(12 * 60 * 60L)
+    val to = now.plusSeconds(48 * 60 * 60L)
+    fun encoded(value: String) = URLEncoder.encode(value, "UTF-8")
+
+    val stationsUrl = URL("https://api-iwls.dfo-mpo.gc.ca/api/v1/stations?code=00065")
+    val stationConn = stationsUrl.openConnection().apply {
+        connectTimeout = 10000
+        readTimeout = 10000
+        setRequestProperty("Accept", "application/json")
+        setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
+    }
+    val stations = org.json.JSONArray(stationConn.getInputStream().bufferedReader().use { it.readText() })
+    var stationId: String? = null
+    for (i in 0 until stations.length()) {
+        val station = stations.optJSONObject(i) ?: continue
+        if (station.optString("code") == "00065") {
+            stationId = station.optString("id").takeIf { it.isNotBlank() }
+            if (stationId != null) break
+        }
+    }
+    val id = stationId ?: throw IllegalStateException("Saint John tide station not found")
+    val dataUrl = URL(
+        "https://api-iwls.dfo-mpo.gc.ca/api/v1/stations/$id/data" +
+            "?time-series-code=wlp-hilo" +
+            "&from=${encoded(from.toString())}" +
+            "&to=${encoded(to.toString())}"
+    )
+    val dataConn = dataUrl.openConnection().apply {
+        connectTimeout = 10000
+        readTimeout = 10000
+        setRequestProperty("Accept", "application/json")
+        setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
+    }
+    val values = org.json.JSONArray(dataConn.getInputStream().bufferedReader().use { it.readText() })
+    data class TideEvent(val instant: Instant, val height: Double)
+    val events = mutableListOf<TideEvent>()
+    for (i in 0 until values.length()) {
+        val item = values.optJSONObject(i) ?: continue
+        val dateText = item.optString("eventDate")
+        val height = item.optDouble("value", Double.NaN)
+        if (!height.isFinite() || dateText.isBlank()) continue
+        try { events.add(TideEvent(Instant.parse(dateText), height)) } catch (_: Exception) {}
+    }
+    val sorted = events.distinctBy { it.instant }.sortedBy { it.instant }
+    if (sorted.size < 3) throw IllegalStateException("Not enough tide events")
+
+    val highs = mutableListOf<TideEvent>()
+    val lows = mutableListOf<TideEvent>()
+    for (i in 1 until sorted.lastIndex) {
+        val prev = sorted[i - 1]
+        val current = sorted[i]
+        val next = sorted[i + 1]
+        if (current.instant.isAfter(now) && current.height >= prev.height && current.height > next.height) highs.add(current)
+        if (current.instant.isAfter(now) && current.height <= prev.height && current.height < next.height) lows.add(current)
+    }
+    val high = highs.firstOrNull()
+    val low = lows.firstOrNull()
+    if (high == null || low == null) throw IllegalStateException("Upcoming high/low tide not found")
+
+    val timeFmt = DateTimeFormatter.ofPattern("HH:mm", Locale.CANADA)
+    val dayFmt = DateTimeFormatter.ofPattern("EEE", Locale.CANADA)
+    val today = now.atZone(zone).toLocalDate()
+    fun label(event: TideEvent): String {
+        val local = event.instant.atZone(zone)
+        val day = when (local.toLocalDate()) {
+            today -> "Today"
+            today.plusDays(1) -> "Tomorrow"
+            else -> dayFmt.format(local)
+        }
+        return "$day ${timeFmt.format(local)} (${"%.1f".format(Locale.CANADA, event.height)} m)"
+    }
+    return "Saint John coastal reference • High ${label(high)} • Low ${label(low)} • CHS predictions"
 }
