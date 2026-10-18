@@ -6,9 +6,13 @@ import android.os.Bundle
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -818,17 +822,21 @@ fun AlertTile(
                 modifier = Modifier.height(6.dp)
             )
 
-            Text(
+            if (tile.title == "Aircraft Overhead") {
+                AircraftTicker(text = tile.subtitle)
+            } else {
+                Text(
 
-                text = tile.subtitle,
+                    text = tile.subtitle,
 
-                style =
-                    MaterialTheme.typography.bodySmall,
+                    style =
+                        MaterialTheme.typography.bodySmall,
 
-                color = Color.LightGray,
+                    color = Color.LightGray,
 
-                maxLines = 5
-            )
+                    maxLines = 5
+                )
+            }
 
             Spacer(
                 modifier = Modifier.weight(1f)
@@ -885,6 +893,61 @@ fun AlertTile(
                     )
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+fun AircraftTicker(text: String) {
+    val lines = remember(text) {
+        text.lines()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+    }
+
+    var currentLine by remember(text) {
+        mutableStateOf(0)
+    }
+
+    LaunchedEffect(lines) {
+        currentLine = 0
+        while (lines.size > 1) {
+            kotlinx.coroutines.delay(2800)
+            currentLine = (currentLine + 1) % lines.size
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp),
+        contentAlignment = Alignment.TopStart
+    ) {
+        AnimatedContent(
+            targetState = lines.getOrElse(currentLine) {
+                "Waiting for aircraft data…"
+            },
+            transitionSpec = {
+                (slideInVertically(
+                    animationSpec = tween(350)
+                ) { height -> height } + fadeIn(
+                    animationSpec = tween(350)
+                )) togetherWith
+                    (slideOutVertically(
+                        animationSpec = tween(350)
+                    ) { height -> -height } + fadeOut(
+                        animationSpec = tween(350)
+                    ))
+            },
+            label = "aircraftTicker"
+        ) { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.LightGray,
+                maxLines = 3
+            )
         }
     }
 }
