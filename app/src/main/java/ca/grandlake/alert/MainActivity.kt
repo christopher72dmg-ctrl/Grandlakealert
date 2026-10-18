@@ -927,24 +927,26 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                         else -> "Kp $kpText • Geomagnetic activity quiet"
                     }
 
-                    // HamQSL provides estimated conditions for common amateur bands.
+                    // HamQSL puts the band range in the "name" attribute and
+                    // the condition as the text inside <band>, not a "condition" attribute.
                     // Keep this optional so a feed outage never hides NOAA Kp.
                     val bandLines = try {
                         val bandConn = URL("https://www.hamqsl.com/solarxml.php").openConnection().apply {
                             connectTimeout=7000
                             readTimeout=7000
+                            setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
                         }
                         val parser = XmlPullParserFactory.newInstance().newPullParser()
                         parser.setInput(bandConn.getInputStream(), "UTF-8")
                         val found = mutableListOf<String>()
+                        val wantedRanges = listOf("80m-40m", "30m-20m", "17m-15m", "12m-10m")
                         var event = parser.eventType
                         while(event != XmlPullParser.END_DOCUMENT) {
                             if(event == XmlPullParser.START_TAG && parser.name.equals("band", true)) {
                                 val band = parser.getAttributeValue(null, "name")?.trim().orEmpty()
                                 val period = parser.getAttributeValue(null, "time")?.trim().orEmpty()
-                                val condition = parser.getAttributeValue(null, "condition")?.trim().orEmpty()
-                                if(band in listOf("80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m") &&
-                                    period.equals("day", true) && condition.isNotBlank()) {
+                                val condition = parser.nextText().trim()
+                                if(band in wantedRanges && period.equals("day", true) && condition.isNotBlank()) {
                                     val label = condition.replaceFirstChar { if(it.isLowerCase()) it.titlecase(Locale.CANADA) else it.toString() }
                                     found.add("$band: $label")
                                 }
