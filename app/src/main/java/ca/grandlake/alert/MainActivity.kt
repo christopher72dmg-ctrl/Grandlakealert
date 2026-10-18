@@ -451,7 +451,7 @@ fun GrandLakeAlertApp() {
                     }
 
                     val updatedMatch = Regex(
-                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\\n]{4,50})"
+                        "(?is)Outage Data Last Updated at:?\\s*</?[^>]*>?\\s*([^<\\r\n]{4,50})"
                     ).find(html)
                     val updatedText = updatedMatch?.groupValues?.getOrNull(1)
                         ?.let { cleanCell(it) }
@@ -463,13 +463,13 @@ fun GrandLakeAlertApp() {
                     if (updatedText != null) lines.add("NB Power updated: $updatedText")
 
                     if (lines.isEmpty()) {
-                        "NB Power page reachable\\nOpen source for current outage details"
+                        "NB Power page reachable\nOpen source for current outage details"
                     } else {
-                        lines.joinToString("\\n")
+                        lines.joinToString("\n")
                     }
                 }
             } catch (_: Exception) {
-                "NB Power data unavailable\\nTap OPEN SOURCE to check the official map"
+                "NB Power data unavailable\nTap OPEN SOURCE to check the official map"
             }
 
             kotlinx.coroutines.delay(10 * 60 * 1000L)
