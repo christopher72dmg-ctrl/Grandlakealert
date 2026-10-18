@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -137,6 +138,8 @@ fun GrandLakeAlertApp() {
     }
 
     var showWeather by remember { mutableStateOf(false) }
+
+    var showSources by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         weather = try {
@@ -648,7 +651,26 @@ fun GrandLakeAlertApp() {
         colorScheme = darkColors
     ) {
 
-        if (showChat) {
+        if (showSources) {
+            AlertDialog(
+                onDismissRequest = { showSources = false },
+                containerColor = Color(0xFF24282D),
+                title = {
+                    Text("Sources & Information", color = Color.White)
+                },
+                text = {
+                    Text(
+                        "Grand Lake Alert gathers local information from public sources. Tap SOURCE on any tile to open its official information page. Weather and forecast data come from public weather services; solar/radio activity uses NOAA data. School alerts, fuel prices, road conditions, RCMP news, wildfire information, NB Power outages, and aircraft reports link to their respective public sources.\n\nInformation may be delayed or unavailable. Always check the official source for urgent or emergency decisions.",
+                        color = Color.LightGray
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSources = false }) {
+                        Text("GOT IT", color = Color(0xFF69F0AE))
+                    }
+                }
+            )
+        } else if (showChat) {
             OfflineChatScreen(onBack = { showChat = false })
         } else {
             Scaffold(
@@ -672,6 +694,16 @@ fun GrandLakeAlertApp() {
                                 text = "LOCAL INFORMATION",
                                 color = Color(0xFF69F0AE),
                                 style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    },
+
+                    actions = {
+                        TextButton(onClick = { showSources = true }) {
+                            Text(
+                                text = "ⓘ",
+                                color = Color(0xFF80CBC4),
+                                style = MaterialTheme.typography.titleLarge
                             )
                         }
                     },
