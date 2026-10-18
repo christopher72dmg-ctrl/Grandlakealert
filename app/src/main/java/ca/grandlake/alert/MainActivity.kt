@@ -441,7 +441,7 @@ fun GrandLakeAlertApp() {
                         it.firstOrNull()?.contains("Central York Sunbury", ignoreCase = true) == true
                     }
                     val queensCounty = rows.firstOrNull {
-                        it.firstOrNull()?.contains("Queens County", ignoreCase = true) == true
+                        it.firstOrNull()?.contains("Kings/Queens", ignoreCase = true) == true
                     }
 
                     fun outageLine(label: String, cells: List<String>?): String? {
@@ -463,7 +463,7 @@ fun GrandLakeAlertApp() {
                     val lines = mutableListOf<String>()
                     outageLine("NB-wide", summary)?.let { lines.add(it) }
                     outageLine("Central York Sunbury", localRegion)?.let { lines.add(it) }
-                    outageLine("Queens County", queensCounty)?.let { lines.add(it) }
+                    outageLine("Queens County (Kings/Queens region)", queensCounty)?.let { lines.add(it) }
                     if (updatedText != null) lines.add("NB Power updated: $updatedText")
 
                     if (lines.isEmpty()) {
