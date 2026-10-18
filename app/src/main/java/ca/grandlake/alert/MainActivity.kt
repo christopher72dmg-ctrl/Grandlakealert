@@ -740,7 +740,7 @@ fun GrandLakeAlertApp() {
 
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(((tiles.size + 1) / 2 * 247).dp),
+                        .height(((tiles.size + 1) / 2 * 190).dp),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(12.dp),
@@ -1266,7 +1266,7 @@ fun AircraftTicker(text: String, compact: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (compact) 104.dp else 72.dp),
+            .height(if (compact) 68.dp else 72.dp),
         contentAlignment = Alignment.TopStart
     ) {
         AnimatedContent(
