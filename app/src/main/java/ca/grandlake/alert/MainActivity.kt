@@ -1131,7 +1131,9 @@ fun DateTimeBanner() {
         }
     }
     val dateText = remember(currentTime) { SimpleDateFormat("EEE, MMM d", Locale.CANADA).format(Date(currentTime)) }
-    val timeText = remember(currentTime) { SimpleDateFormat("HH:mm", Locale.CANADA).format(Date(currentTime)) }
+    val time12Text = remember(currentTime) { SimpleDateFormat("h:mm a", Locale.CANADA).format(Date(currentTime)) }
+    val time24Text = remember(currentTime) { SimpleDateFormat("HH:mm", Locale.CANADA).format(Date(currentTime)) }
+    val timeText = "$time12Text  |  $time24Text"
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
         shape = RoundedCornerShape(14.dp),
