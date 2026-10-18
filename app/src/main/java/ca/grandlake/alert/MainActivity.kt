@@ -20,6 +20,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -561,15 +562,6 @@ fun GrandLakeAlertApp() {
     val tiles = listOf(
 
         Tile(
-            title = "Weather",
-            icon = "🌦️",
-            subtitle = weather,
-            url = null,
-            accent = Color(0xFF42A5F5),
-            weather = true
-        ),
-
-        Tile(
             title = "Minto School",
             icon = "🏫",
             subtitle = schoolAlerts,
@@ -707,7 +699,9 @@ fun GrandLakeAlertApp() {
 
                 DateTimeBanner()
 
-                Spacer(modifier = Modifier.height(12.dp))
+                WeatherDashboardScreen(onBack = {})
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier
@@ -884,23 +878,47 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         }
     }
     val context=LocalContext.current
-    AnimatedVisibility(
-        visible = true,
-        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { -it / 8 }, animationSpec = tween(300))
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text("WEATHER DETAILS", color = Color(0xFF69F0AE), style = MaterialTheme.typography.labelLarge)
-            WeatherInfoCard("NOW","🌦️",now,Color(0xFF42A5F5))
-            WeatherInfoCard("TOMORROW","🌤️",tomorrow,Color(0xFF80CBC4))
-            WeatherInfoCard("WEATHER ALERTS","⚠️",alerts,Color(0xFFFFB74D))
-            WeatherInfoCard("OVERNIGHT FROST","❄️",frost,Color(0xFF90CAF9))
-            WeatherInfoCard("MOON & DAYLIGHT","🌙",moon,Color(0xFFB39DDB))
-            WeatherInfoCard("SOLAR / RADIO WEATHER","☀️",solar,Color(0xFFFFD54F))
-            Text("$updated • Forecast estimates are not official warnings",color=Color.Gray,style=MaterialTheme.typography.labelSmall)
-            TextButton(onClick={try{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://weather.gc.ca/city/pages/nb-14_metric_e.html")))}catch(_:Exception){}},modifier=Modifier.fillMaxWidth()){Text("OPEN OFFICIAL ENVIRONMENT CANADA PAGE",color=Color(0xFF69F0AE))}
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            WeatherMiniCard("🌙 MOON", moon.substringBefore("\n"), Color(0xFFB39DDB), Modifier.weight(1f))
+            WeatherMiniCard("☀️ SOLAR / RADIO", solar, Color(0xFFFFD54F), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            WeatherMiniCard("🌦️ RIGHT NOW", now, Color(0xFF42A5F5), Modifier.weight(1f))
+            WeatherMiniCard("🌤️ TOMORROW", tomorrow, Color(0xFF80CBC4), Modifier.weight(1f))
+        }
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF24282D))) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("⚠️ ALERTS", color = Color(0xFFFFB74D), style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.size(8.dp))
+                Text(alerts.replace("\n", " • "), modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE), color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 1, softWrap = false)
+            }
+        }
+        Text(frost, color = Color(0xFF90CAF9), style = MaterialTheme.typography.labelSmall)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(moon.substringAfter("\n", "") + " • " + updated + " • Forecasts are estimates", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+            TextButton(onClick={try{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://weather.gc.ca/city/pages/nb-14_metric_e.html")))}catch(_:Exception){}}) {
+                Text("OFFICIAL", color = Color(0xFF69F0AE), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+
+@Composable
+fun WeatherMiniCard(title: String, body: String, accent: Color, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181B1F)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = accent, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+            Text(body, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 3)
         }
     }
 }
