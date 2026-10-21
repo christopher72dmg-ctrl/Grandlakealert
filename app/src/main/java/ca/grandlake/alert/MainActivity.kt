@@ -817,7 +817,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
             try {
                 val data = withContext(Dispatchers.IO) {
                     val url = "https://api.open-meteo.com/v1/forecast?latitude=46.0&longitude=-66.0" +
-                        "&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_gusts_10m,relative_humidity_2m,weather_code" +
+                        "&current=temperature_2m,apparent_temperature,dew_point_2m,wind_speed_10m,wind_gusts_10m,relative_humidity_2m,weather_code" +
                         "&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,relative_humidity_2m,uv_index,visibility,weather_code" +
                         "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,moon_phase" +
                         "&timezone=America%2FMoncton&forecast_days=2"
@@ -836,7 +836,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val temps=h.optJSONArray("temperature_2m"); val feels=h.optJSONArray("apparent_temperature")
                     val chances=h.optJSONArray("precipitation_probability"); val rainMm=h.optJSONArray("precipitation")
                     val winds=h.optJSONArray("wind_speed_10m"); val gusts=h.optJSONArray("wind_gusts_10m")
-                    val hums=h.optJSONArray("relative_humidity_2m"); val uvs=h.optJSONArray("uv_index")
+                    val uvs=h.optJSONArray("uv_index")
                     val vis=h.optJSONArray("visibility"); val codes=h.optJSONArray("weather_code")
                     val currentTime=c.optString("time")
                     var firstHour=0
@@ -864,10 +864,23 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val currentWind=c.optDouble("wind_speed_10m",Double.NaN)
                     val currentGust=c.optDouble("wind_gusts_10m",Double.NaN)
                     val currentHumidity=c.optDouble("relative_humidity_2m",Double.NaN)
+                    val currentTemp=c.optDouble("temperature_2m",Double.NaN)
+                    val dewPoint=c.optDouble("dew_point_2m",Double.NaN)
                     val uv=uvs?.optDouble(firstHour,Double.NaN)?:Double.NaN
                     val visibility=vis?.optDouble(firstHour,Double.NaN)?:Double.NaN
                     val detailParts=mutableListOf<String>()
-                    if(currentWind.isFinite()) detailParts.add("Wind "+n(currentWind)+" km/h")
+                    if(currentTemp.isFinite()) detailParts.add("feels like "+n(c.optDouble("apparent_temperature",Double.NaN))+"°C")
+                    if(currentTemp.isFinite() && currentWind.isFinite() && currentTemp<=10.0 && currentWind>4.8) {
+                        val v=currentWind
+                        val chill=13.12+0.6215*currentTemp-11.37*Math.pow(v,0.16)+0.3965*currentTemp*Math.pow(v,0.16)
+                        detailParts.add("wind chill "+String.format(Locale.CANADA,"%.1f",chill)+"°C")
+                    }
+                    if(currentTemp.isFinite() && currentTemp>=20.0 && dewPoint.isFinite()) {
+                        val vapor=6.11*kotlin.math.exp(5417.753*(1.0/273.16-1.0/(dewPoint+273.15)))
+                        val humidex=currentTemp+0.5555*(vapor-10.0)
+                        if(humidex-currentTemp>=1.0) detailParts.add("humidex "+String.format(Locale.CANADA,"%.1f",humidex))
+                    }
+                    if(currentWind.isFinite()) detailParts.add("wind "+n(currentWind)+" km/h")
                     if(currentGust.isFinite()) detailParts.add("gusts "+n(currentGust)+" km/h")
                     if(currentHumidity.isFinite()) detailParts.add("humidity "+n(currentHumidity)+"%")
                     if(uv.isFinite()) detailParts.add("UV "+String.format(Locale.CANADA,"%.1f",uv))
