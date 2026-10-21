@@ -808,18 +808,22 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     var solar by remember { mutableStateOf("Checking solar weather…") }
     var updated by remember { mutableStateOf("") }
     var tideTicker by remember { mutableStateOf("Loading official Saint John tide predictions…") }
+    var hourlySlides by remember { mutableStateOf(listOf("Loading hourly forecast…")) }
+    var slideIndex by remember { mutableStateOf(0) }
+    var weatherTicker by remember { mutableStateOf("Loading feels-like temperature, wind and precipitation details…") }
 
     LaunchedEffect(Unit) {
         while (true) {
             try {
                 val data = withContext(Dispatchers.IO) {
                     val url = "https://api.open-meteo.com/v1/forecast?latitude=46.0&longitude=-66.0" +
-                        "&current=temperature_2m,apparent_temperature,wind_speed_10m,relative_humidity_2m,weather_code" +
+                        "&current=temperature_2m,apparent_temperature,dew_point_2m,wind_speed_10m,wind_gusts_10m,relative_humidity_2m,weather_code" +
+                        "&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,relative_humidity_2m,uv_index,visibility,weather_code" +
                         "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,moon_phase" +
                         "&timezone=America%2FMoncton&forecast_days=2"
                     val conn = URL(url).openConnection().apply { connectTimeout=10000; readTimeout=10000 }
                     val j = JSONObject(conn.getInputStream().bufferedReader().use { it.readText() })
-                    val c=j.getJSONObject("current"); val d=j.getJSONObject("daily")
+                    val c=j.getJSONObject("current"); val d=j.getJSONObject("daily"); val h=j.getJSONObject("hourly")
                     val hi=d.optJSONArray("temperature_2m_max"); val lo=d.optJSONArray("temperature_2m_min")
                     val rain=d.optJSONArray("precipitation_probability_max"); val rise=d.optJSONArray("sunrise")
                     val set=d.optJSONArray("sunset"); val phase=d.optJSONArray("moon_phase")
@@ -828,6 +832,59 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val code=c.optInt("weather_code",-1)
                     val desc=when(code){0->"Clear sky";1->"Mainly clear";2->"Partly cloudy";3->"Overcast";45,48->"Fog";51,53,55->"Drizzle";56,57->"Freezing drizzle";61,63,65->"Rain";66,67->"Freezing rain";71,73,75,77->"Snow";80,81,82->"Rain showers";85,86->"Snow showers";95,96,99->"Thunderstorm";else->"Conditions available"}
                     val low=lo?.optDouble(1,Double.NaN)?:Double.NaN
+                    val times=h.optJSONArray("time")
+                    val temps=h.optJSONArray("temperature_2m"); val feels=h.optJSONArray("apparent_temperature")
+                    val chances=h.optJSONArray("precipitation_probability"); val rainMm=h.optJSONArray("precipitation")
+                    val winds=h.optJSONArray("wind_speed_10m"); val gusts=h.optJSONArray("wind_gusts_10m")
+                    val uvs=h.optJSONArray("uv_index")
+                    val vis=h.optJSONArray("visibility"); val codes=h.optJSONArray("weather_code")
+                    val currentTime=c.optString("time")
+                    var firstHour=0
+                    if(times!=null) for(i in 0 until times.length()) { if(times.optString(i)>=currentTime) { firstHour=i; break } }
+                    fun hourlySlide(offset:Int):String {
+                        val i=firstHour+offset
+                        if(times==null || i>=times.length()) return "Hourly forecast unavailable"
+                        val time=times.optString(i).substringAfter("T","")
+                        val label=try { SimpleDateFormat("h a",Locale.CANADA).format(SimpleDateFormat("HH:mm",Locale.CANADA).parse(time)!!) } catch(_:Exception) { time }
+                        val code=codes?.optInt(i,-1)?:-1
+                        val sky=when(code){0->"Clear";1->"Mostly clear";2->"Partly cloudy";3->"Cloudy";45,48->"Fog";51,53,55,56,57->"Drizzle";61,63,65,66,67->"Rain";71,73,75,77,85,86->"Snow";80,81,82->"Showers";95,96,99->"Thunderstorms";else->"Conditions"}
+                        val chance=chances?.optInt(i,-1)?:-1
+                        val amount=rainMm?.optDouble(i,Double.NaN)?:Double.NaN
+                        val amountText=if(amount.isFinite() && amount>=0.1) " • "+String.format(Locale.CANADA,"%.1f",amount)+" mm" else ""
+                        val tempText=n(temps?.optDouble(i,Double.NaN)?:Double.NaN)
+                        val feelsText=n(feels?.optDouble(i,Double.NaN)?:Double.NaN)
+                        val windText=n(winds?.optDouble(i,Double.NaN)?:Double.NaN)
+                        val gustText=n(gusts?.optDouble(i,Double.NaN)?:Double.NaN)
+                        val chanceText=if(chance>=0) "$chance% rain" else "rain chance —"
+                        return "$label • $sky • $tempText°C (feels $feelsText°C) • $chanceText$amountText • wind $windText, gusts $gustText km/h"
+                    }
+                    val slideList=mutableListOf<String>()
+                    slideList.add("NOW • "+desc+" • "+n(c.optDouble("temperature_2m",Double.NaN))+"°C • feels "+n(c.optDouble("apparent_temperature",Double.NaN))+"°C")
+                    for(hour in 0..5) slideList.add(hourlySlide(hour))
+                    val currentWind=c.optDouble("wind_speed_10m",Double.NaN)
+                    val currentGust=c.optDouble("wind_gusts_10m",Double.NaN)
+                    val currentHumidity=c.optDouble("relative_humidity_2m",Double.NaN)
+                    val currentTemp=c.optDouble("temperature_2m",Double.NaN)
+                    val dewPoint=c.optDouble("dew_point_2m",Double.NaN)
+                    val uv=uvs?.optDouble(firstHour,Double.NaN)?:Double.NaN
+                    val visibility=vis?.optDouble(firstHour,Double.NaN)?:Double.NaN
+                    val detailParts=mutableListOf<String>()
+                    if(currentTemp.isFinite()) detailParts.add("feels like "+n(c.optDouble("apparent_temperature",Double.NaN))+"°C")
+                    if(currentTemp.isFinite() && currentWind.isFinite() && currentTemp<=10.0 && currentWind>4.8) {
+                        val v=currentWind
+                        val chill=13.12+0.6215*currentTemp-11.37*Math.pow(v,0.16)+0.3965*currentTemp*Math.pow(v,0.16)
+                        detailParts.add("wind chill "+String.format(Locale.CANADA,"%.1f",chill)+"°C")
+                    }
+                    if(currentTemp.isFinite() && currentTemp>=20.0 && dewPoint.isFinite()) {
+                        val vapor=6.11*kotlin.math.exp(5417.753*(1.0/273.16-1.0/(dewPoint+273.15)))
+                        val humidex=currentTemp+0.5555*(vapor-10.0)
+                        if(humidex-currentTemp>=1.0) detailParts.add("humidex "+String.format(Locale.CANADA,"%.1f",humidex))
+                    }
+                    if(currentWind.isFinite()) detailParts.add("wind "+n(currentWind)+" km/h")
+                    if(currentGust.isFinite()) detailParts.add("gusts "+n(currentGust)+" km/h")
+                    if(currentHumidity.isFinite()) detailParts.add("humidity "+n(currentHumidity)+"%")
+                    if(uv.isFinite()) detailParts.add("UV "+String.format(Locale.CANADA,"%.1f",uv))
+                    if(visibility.isFinite()) detailParts.add("visibility "+String.format(Locale.CANADA,"%.1f",visibility/1000.0)+" km")
                     val ph=phase?.optDouble(0,Double.NaN)?:Double.NaN
                     val p=if(ph.isFinite()) ((ph%1.0)+1.0)%1.0 else -1.0
                     val moonName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon";p<0.22->"Waxing Crescent";p<0.28->"First Quarter";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter";else->"Waning Crescent"}
@@ -837,10 +894,15 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                         "High ${n(hi?.optDouble(1,Double.NaN)?:Double.NaN)}°C / Low ${n(low)}°C\nPrecipitation chance: ${rain?.optInt(1,-1)?.let { if(it>=0) "$it%" else "—" } ?: "—"}",
                         "Sunrise ${clock(rise?.optString(0))} • Sunset ${clock(set?.optString(0))}",
                         moonName,
-                        frostText
+                        frostText,
+                        slideList.joinToString("\u001F"),
+                        detailParts.joinToString(" • ")
                     )
                 }
                 now=data[0]; tomorrow=data[1]; moon=data[3]+"\n"+data[2]; frost=data[4]
+                hourlySlides=data.getOrNull(5)?.split("\u001F")?.filter { it.isNotBlank() }?.ifEmpty { listOf(now) } ?: listOf(now)
+                slideIndex=0
+                weatherTicker=data.getOrNull(6)?.ifBlank { "Additional weather details unavailable" } ?: "Additional weather details unavailable"
             } catch(_:Exception) {
                 now="Weather data unavailable"; tomorrow="Forecast unavailable"
                 moon="Moon/daylight data unavailable"; frost="Frost estimate unavailable"
@@ -939,8 +1001,17 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
             } catch(_:Exception) { "Solar weather temporarily unavailable" }
 
             tideTicker = try { withContext(Dispatchers.IO) { fetchTideTicker() } } catch (_: Exception) { "Tide predictions temporarily unavailable • tap TIDES for official times" }
+            val hasActiveAlert=alerts.isNotBlank() && !alerts.startsWith("No active warning",true) && !alerts.contains("unavailable",true) && !alerts.contains("no watches or warnings",true)
+            if(hasActiveAlert) weatherTicker="⚠️ "+alerts.replace("\n"," • ")+" • "+weatherTicker
             updated="Updated "+SimpleDateFormat("h:mm a",Locale.CANADA).format(Date())
             kotlinx.coroutines.delay(15*60*1000L)
+        }
+    }
+    LaunchedEffect(hourlySlides) {
+        slideIndex=0
+        while(hourlySlides.size>1) {
+            kotlinx.coroutines.delay(6000L)
+            slideIndex=(slideIndex+1)%hourlySlides.size
         }
     }
     val context=LocalContext.current
@@ -953,7 +1024,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
             WeatherMiniCard("☀️ SOLAR / RADIO", solar, Color(0xFFFFD54F), Modifier.weight(1f), ticker = true)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            WeatherMiniCard("🌦️ RIGHT NOW", now, Color(0xFF42A5F5), Modifier.weight(1f))
+            WeatherRotatingCard("🌦️ RIGHT NOW / HOURLY", hourlySlides.getOrElse(slideIndex) { now }, Color(0xFF42A5F5), Modifier.weight(1f))
             WeatherMiniCard("🌤️ TOMORROW", tomorrow, Color(0xFF80CBC4), Modifier.weight(1f))
         }
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF24282D))) {
@@ -983,6 +1054,13 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 }
             }
         }
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF101820))) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("🌡️ WEATHER", color = Color(0xFF80CBC4), style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.size(8.dp))
+                Text(weatherTicker.ifBlank { "Weather details loading…" }, modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE), color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 1, softWrap = false)
+            }
+        }
         Text(frost, color = Color(0xFF90CAF9), style = MaterialTheme.typography.labelSmall)
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(moon.substringAfter("\n", "") + " • " + updated + " • Forecasts are estimates", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.labelSmall, maxLines = 2)
@@ -993,6 +1071,23 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     }
 }
 
+
+@Composable
+fun WeatherRotatingCard(title:String, body:String, accent:Color, modifier:Modifier=Modifier) {
+    Card(modifier=modifier, shape=RoundedCornerShape(14.dp), colors=CardDefaults.cardColors(containerColor=Color(0xFF181B1F)), elevation=CardDefaults.cardElevation(defaultElevation=2.dp)) {
+        Column(modifier=Modifier.fillMaxWidth().padding(8.dp), verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            Text(title, color=accent, style=MaterialTheme.typography.labelSmall, maxLines=1, softWrap=false)
+            Box(modifier=Modifier.fillMaxWidth().height(62.dp), contentAlignment=Alignment.CenterStart) {
+                AnimatedContent(targetState=body, transitionSpec={
+                    (slideInVertically(animationSpec=tween(280)) { height -> height/3 } + fadeIn(animationSpec=tween(280))) togetherWith
+                        (slideOutVertically(animationSpec=tween(280)) { height -> -height/3 } + fadeOut(animationSpec=tween(220)))
+                }, label="weatherHourlyRotation") { slide ->
+                    Text(slide, color=Color.White, style=MaterialTheme.typography.bodySmall, maxLines=3)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun WeatherMiniCard(
