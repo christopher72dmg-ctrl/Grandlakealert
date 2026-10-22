@@ -944,10 +944,17 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         }
     }
     val context=LocalContext.current
-    Column(
+    // Keep every weather feature together inside one large dashboard tile.
+    Card(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF20252B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
+      Column(
+        modifier = Modifier.fillMaxWidth().padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+      ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             WeatherMiniCard("🌙 MOON", moon.substringBefore("\n"), Color(0xFFB39DDB), Modifier.weight(1f))
             WeatherMiniCard("☀️ SOLAR / RADIO", solar, Color(0xFFFFD54F), Modifier.weight(1f), ticker = true)
@@ -990,6 +997,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 Text("OFFICIAL", color = Color(0xFF69F0AE), style = MaterialTheme.typography.labelSmall)
             }
         }
+      }
     }
 }
 
