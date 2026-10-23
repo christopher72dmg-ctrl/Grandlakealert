@@ -818,14 +818,9 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     LaunchedEffect(Unit) {
         seasonalBitmap = withContext(Dispatchers.IO) {
             try {
-                val month = java.time.LocalDate.now(ZoneId.of("America/Moncton")).monthValue
-                val photo = when (month) {
-                    12, 1, 2 -> "photo-1517299321609-52687d1bc55a"
-                    3, 4, 5 -> "photo-1470770841072-f978cf4d019e"
-                    6, 7, 8 -> "photo-1500530855697-b586d89ba3ee"
-                    else -> "photo-1501785888041-af3ef285b470"
-                }
-                val imageUrl = URL("https://images.unsplash.com/" + photo + "?auto=format&fit=crop&w=1200&q=75")
+                // Use a lowland lake / shoreline scene rather than mountain scenery.
+                val photo = "photo-1500375592092-40eb2168fd21"
+                val imageUrl = URL("https://images.unsplash.com/" + photo + "?auto=format&fit=crop&w=1200&q=80")
                 imageUrl.openConnection().apply { connectTimeout = 5000; readTimeout = 5000 }
                     .getInputStream().use { BitmapFactory.decodeStream(it) }
             } catch (_: Exception) { null }
@@ -853,7 +848,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val low=lo?.optDouble(1,Double.NaN)?:Double.NaN
                     val ph=phase?.optDouble(0,Double.NaN)?:Double.NaN
                     val p=if(ph.isFinite()) ((ph%1.0)+1.0)%1.0 else -1.0
-                    val moonName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon";p<0.22->"Waxing Crescent";p<0.28->"First Quarter";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter";else->"Waning Crescent"}
+                    val moonName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon (0/4 lit)";p<0.22->"Waxing Crescent";p<0.28->"First Quarter (1/2 lit)";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon (4/4 lit)";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter (1/2 lit)";else->"Waning Crescent"}
                     val frostText=when { !low.isFinite()->"Frost estimate unavailable";low<=0->"❄️ Frost likely • forecast low ${n(low)}°C";low<=2->"⚠️ Frost possible • forecast low ${n(low)}°C";else->"Low frost risk • forecast low ${n(low)}°C" }
                     listOf(
                         "${desc}\n${n(c.optDouble("temperature_2m",Double.NaN))}°C • Feels like ${n(c.optDouble("apparent_temperature",Double.NaN))}°C\nWind ${n(c.optDouble("wind_speed_10m",Double.NaN))} km/h • Humidity ${n(c.optDouble("relative_humidity_2m",Double.NaN))}%",
@@ -995,12 +990,12 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
               bitmap = seasonalBitmap!!.asImageBitmap(),
               contentDescription = "Seasonal New Brunswick lake scenery",
               contentScale = ContentScale.Crop,
-              modifier = Modifier.matchParentSize().alpha(0.42f)
+              modifier = Modifier.matchParentSize().alpha(0.82f)
             )
           }
           Column(
             modifier = Modifier.fillMaxWidth()
-              .background(Color(0x5907518A))
+              .background(Color(0x3307518A))
               .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp)
           ) {
