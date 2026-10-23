@@ -1,6 +1,8 @@
 package ca.grandlake.alert
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 
@@ -19,6 +21,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +62,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -808,6 +813,24 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     var solar by remember { mutableStateOf("Checking solar weather…") }
     var updated by remember { mutableStateOf("") }
     var tideTicker by remember { mutableStateOf("Loading official Saint John tide predictions…") }
+    var seasonalBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(Unit) {
+        seasonalBitmap = withContext(Dispatchers.IO) {
+            try {
+                val month = java.time.LocalDate.now(ZoneId.of("America/Moncton")).monthValue
+                val photo = when (month) {
+                    12, 1, 2 -> "photo-1517299321609-52687d1bc55a"
+                    3, 4, 5 -> "photo-1470770841072-f978cf4d019e"
+                    6, 7, 8 -> "photo-1500530855697-b586d89ba3ee"
+                    else -> "photo-1501785888041-af3ef285b470"
+                }
+                val imageUrl = URL("https://images.unsplash.com/" + photo + "?auto=format&fit=crop&w=1200&q=75")
+                imageUrl.openConnection().apply { connectTimeout = 5000; readTimeout = 5000 }
+                    .getInputStream().use { BitmapFactory.decodeStream(it) }
+            } catch (_: Exception) { null }
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -864,7 +887,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                         }
                         event=parser.next()
                     }
-                    if(found.isEmpty()) "No active warning title found • check official page to confirm" else found.distinct().take(3).joinToString("\n")
+                    if(found.isEmpty()) "No active alerts • check official forecast" else found.distinct().take(3).joinToString(" • ")
                 }
             } catch(_:Exception) { "Alert feed unavailable • check official Environment Canada page" }
 
@@ -966,13 +989,21 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color(0xFF07518A)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF07518A))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+          if (seasonalBitmap != null) {
+            Image(
+              bitmap = seasonalBitmap!!.asImageBitmap(),
+              contentDescription = "Seasonal New Brunswick lake scenery",
+              contentScale = ContentScale.Crop,
+              modifier = Modifier.fillMaxWidth().height(340.dp).alpha(0.42f)
+            )
+          }
+          Column(
+            modifier = Modifier.fillMaxWidth()
+              .background(Color(0xB807518A))
+              .padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+          ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1004,12 +1035,13 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
             CompactWeatherTicker("🌊 TIDES", tideTicker, Color(0xFF8BEAFF))
             CompactWeatherTicker("☀ SOLAR / RADIO", solar, Color(0xFFFFE08A))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text("Updated $updated", modifier = Modifier.weight(1f), color = Color(0xFFBDEBFF), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                Text(updated.removePrefix("Updated ").let { "Updated $it" }, modifier = Modifier.weight(1f), color = Color(0xFFBDEBFF), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 TextButton(
                     onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://weather.gc.ca/city/pages/nb-14_metric_e.html"))) } catch (_: Exception) {} },
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) { Text("OFFICIAL ↗", color = Color.White, style = MaterialTheme.typography.labelSmall) }
             }
+          }
         }
     }
 }
