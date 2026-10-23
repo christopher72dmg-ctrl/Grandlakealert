@@ -944,7 +944,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         }
     }
     val context=LocalContext.current
-    // Scenic-style weather hero panel. The lower information tiles remain separate and unchanged.
+    // Compact scenic weather tile: preserve every existing weather item and ticker.
     val currentLines = now.split("\n")
     val currentSummary = currentLines.getOrElse(0) { "Current conditions" }
     val currentTemp = Regex("-?\\d+°C").find(currentLines.getOrElse(1) { "" })?.value ?: "—°C"
@@ -961,132 +961,54 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         else -> "🌤️"
     }
     Card(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF06335D)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF07518A)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF06335D))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp)
+                .background(Color(0xFF07518A))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("GRAND LAKE WEATHER", color = Color(0xFF71E4FF), style = MaterialTheme.typography.labelMedium)
-                    Text(currentSummary, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text("GRAND LAKE  •  WEATHER", color = Color(0xFFBDEBFF), style = MaterialTheme.typography.labelSmall)
                     Text(currentTemp, color = Color.White, style = MaterialTheme.typography.headlineLarge)
-                    Text(feelsLike, color = Color(0xFFD6E9FF), style = MaterialTheme.typography.bodySmall)
+                    Text(currentSummary + if (feelsLike.isNotBlank()) "  •  $feelsLike" else "", color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 }
-                Text(weatherEmoji, style = MaterialTheme.typography.displayLarge)
+                Text(weatherEmoji, style = MaterialTheme.typography.displayMedium)
             }
-            Row(
+            Text(
+                listOf("💨 $windLine", "💧 $humidityLine", "📅 ${tomorrow.replace("\n", " ")}")
+                    .filter { it.trim().length > 2 }.joinToString("   •   "),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                WeatherHeroMetric("💨 WIND", windLine.ifBlank { "Unavailable" }, Modifier.weight(1f))
-                WeatherHeroMetric("💧 HUMIDITY", humidityLine.ifBlank { "Unavailable" }, Modifier.weight(1f))
-            }
-            Row(
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2
+            )
+            Text(
+                "🌅 ${moon.replace("\n", "  •  ")}   •   ❄️ $frost",
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                WeatherHeroMetric("📅 TOMORROW", tomorrow.replace("\n", " • "), Modifier.weight(1f))
-                WeatherHeroMetric("🌅 DAYLIGHT", moon.substringAfter("\n", "").ifBlank { moon }, Modifier.weight(1f))
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                WeatherHeroMetric("🌙 MOON PHASE", moon.substringBefore("\n"), Modifier.weight(1f))
-                WeatherHeroMetric("❄️ FROST RISK", frost, Modifier.weight(1f))
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B2745))
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("⚠️ ALERTS", color = Color(0xFFFFD65C), style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        alerts.replace("\n", " • "),
-                        modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE),
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B2745))
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("🌊 TIDES", color = Color(0xFF6FEAFF), style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        tideTicker,
-                        modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE),
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    TextButton(
-                        onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tides.gc.ca/en/stations/00065/predictions"))) } catch (_: Exception) {} },
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                    ) {
-                        Text("↗", color = Color(0xFF6FEAFF), style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B2745))
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("☀️ SOLAR / RADIO", color = Color(0xFFFFD65C), style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        solar.replace("\n", " • "),
-                        modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE),
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
+                color = Color(0xFFE1F4FF),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2
+            )
+            CompactWeatherTicker("⚠ ALERTS", alerts, Color(0xFFFFD65C))
+            CompactWeatherTicker("🌊 TIDES", tideTicker, Color(0xFF8BEAFF))
+            CompactWeatherTicker("☀ SOLAR / RADIO", solar, Color(0xFFFFE08A))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    "Updated $updated • Forecasts are estimates",
-                    modifier = Modifier.weight(1f),
-                    color = Color(0xFFB8D4EB),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1
-                )
-                TextButton(onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://weather.gc.ca/city/pages/nb-14_metric_e.html"))) } catch (_: Exception) {} }) {
-                    Text("OFFICIAL ↗", color = Color(0xFF71E4FF), style = MaterialTheme.typography.labelSmall)
-                }
+                Text("Updated $updated", modifier = Modifier.weight(1f), color = Color(0xFFBDEBFF), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                TextButton(
+                    onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://weather.gc.ca/city/pages/nb-14_metric_e.html"))) } catch (_: Exception) {} },
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                ) { Text("OFFICIAL ↗", color = Color.White, style = MaterialTheme.typography.labelSmall) }
             }
         }
     }
@@ -1094,22 +1016,23 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
 
 
 @Composable
-fun WeatherHeroMetric(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0B2745))
+fun CompactWeatherTicker(label: String, value: String, accent: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(9.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(title, color = Color(0xFF71E4FF), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
-            Text(value, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 3)
-        }
+        Text(label, color = accent, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+        Spacer(Modifier.size(7.dp))
+        Text(
+            value.replace("\n", "  •  "),
+            modifier = Modifier.weight(1f).basicMarquee(iterations = Int.MAX_VALUE),
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }
-
 
 @Composable
 fun WeatherMiniCard(
