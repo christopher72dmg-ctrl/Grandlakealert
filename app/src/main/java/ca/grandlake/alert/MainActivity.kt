@@ -995,7 +995,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
               bitmap = seasonalBitmap!!.asImageBitmap(),
               contentDescription = "Seasonal New Brunswick lake scenery",
               contentScale = ContentScale.Crop,
-              modifier = Modifier.fillMaxWidth().height(340.dp).alpha(0.42f)
+              modifier = Modifier.matchParentSize().alpha(0.42f)
             )
           }
           Column(
