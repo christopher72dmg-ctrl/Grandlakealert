@@ -1000,7 +1000,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
           }
           Column(
             modifier = Modifier.fillMaxWidth()
-              .background(Color(0xB807518A))
+              .background(Color(0x5907518A))
               .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp)
           ) {
