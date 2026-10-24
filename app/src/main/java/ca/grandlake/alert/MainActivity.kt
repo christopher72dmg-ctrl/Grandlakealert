@@ -22,6 +22,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -814,6 +816,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     var updated by remember { mutableStateOf("") }
     var tideTicker by remember { mutableStateOf("Loading official Saint John tide predictions…") }
     var seasonalBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var mooseLine by remember { mutableStateOf("Tap the moose for a local forecast.") }
 
     LaunchedEffect(Unit) {
         seasonalBitmap = withContext(Dispatchers.IO) {
@@ -1009,7 +1012,28 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     Text(currentTemp, color = Color.White, style = MaterialTheme.typography.headlineLarge)
                     Text(currentSummary + if (feelsLike.isNotBlank()) "  •  $feelsLike" else "", color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 }
-                Text(weatherEmoji, style = MaterialTheme.typography.displayMedium)
+                val mooseMotion = androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (mooseLine.startsWith("Tap")) -2f else 2f,
+                    animationSpec = tween(durationMillis = 650),
+                    label = "mooseHeadMotion"
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable {
+                        mooseLine = when {
+                            currentTemp.startsWith("—") -> "Hang on, I'm still checking the weather."
+                            currentTemp.contains("-") -> "Brrr! It's $currentTemp. I'm drinking from the brook so my antlers don't freeze."
+                            else -> "It's $currentTemp out there. Forecast from your local moose: dress for the weather, not for your optimism."
+                        }
+                    }
+                ) {
+                    Text(
+                        "🫎",
+                        style = MaterialTheme.typography.displayMedium,
+                        modifier = Modifier.graphicsLayer { rotationZ = mooseMotion.value }
+                    )
+                    Text(weatherEmoji, style = MaterialTheme.typography.labelMedium)
+                }
             }
             Text(
                 listOf("💨 $windLine", "💧 $humidityLine", "📅 ${tomorrow.replace("\n", " ")}")
@@ -1023,6 +1047,12 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 "🌅 ${moon.replace("\n", "  •  ")}   •   ❄️ $frost",
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFE1F4FF),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2
+            )
+            Text(
+                mooseLine,
+                color = Color(0xFFFFF1C2),
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 2
             )
