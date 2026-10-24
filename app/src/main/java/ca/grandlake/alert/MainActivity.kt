@@ -997,6 +997,8 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         currentSummary.contains("clear", true) -> "☀️"
         else -> "🌤️"
     }
+    val moonPhaseIcon = moon.substringBefore("\n").substringBefore(" ").ifBlank { "🌙" }
+    val daylightLine = moon.substringAfter("\n", "").trim()
     Card(
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp),
         shape = RoundedCornerShape(20.dp),
@@ -1028,7 +1030,10 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     Text(currentTemp, color = Color.White, style = MaterialTheme.typography.headlineLarge)
                     Text(currentSummary + if (feelsLike.isNotBlank()) "  •  $feelsLike" else "", color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 }
-                Text(weatherEmoji, style = MaterialTheme.typography.displayMedium)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(weatherEmoji, style = MaterialTheme.typography.displayMedium)
+                    Text(moonPhaseIcon, style = MaterialTheme.typography.headlineMedium)
+                }
             }
             Text(
                 listOf("💨 $windLine", "💧 $humidityLine", "📅 ${tomorrow.replace("\n", " ")}")
@@ -1039,7 +1044,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 maxLines = 2
             )
             Text(
-                "🌅 ${moon.replace("\n", "  •  ")}   •   ❄️ $frost",
+                "🌅 $daylightLine   •   ❄️ $frost",
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFE1F4FF),
                 style = MaterialTheme.typography.labelSmall,
