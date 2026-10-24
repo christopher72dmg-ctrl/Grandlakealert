@@ -816,7 +816,8 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
     var updated by remember { mutableStateOf("") }
     var tideTicker by remember { mutableStateOf("Loading official Saint John tide predictions…") }
     var seasonalBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var mooseLine by remember { mutableStateOf("Tap the moose for a local forecast.") }
+    var mooseLine by remember { mutableStateOf("Your local moose is checking the forecast.") }
+    var showMooseForecast by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         seasonalBitmap = withContext(Dispatchers.IO) {
@@ -981,6 +982,19 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
         currentSummary.contains("clear", true) -> "☀️"
         else -> "🌤️"
     }
+    if (showMooseForecast) {
+        AlertDialog(
+            onDismissRequest = { showMooseForecast = false },
+            containerColor = Color(0xFF24282D),
+            title = { Text("🫎 Local Moose Forecast", color = Color(0xFFFFF1C2)) },
+            text = { Text(mooseLine, color = Color.White) },
+            confirmButton = {
+                TextButton(onClick = { showMooseForecast = false }) {
+                    Text("BACK TO WEATHER", color = Color(0xFF69F0AE))
+                }
+            }
+        )
+    }
     Card(
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp),
         shape = RoundedCornerShape(20.dp),
@@ -1025,6 +1039,7 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                             currentTemp.contains("-") -> "Brrr! It's $currentTemp. I'm drinking from the brook so my antlers don't freeze."
                             else -> "It's $currentTemp out there. Forecast from your local moose: dress for the weather, not for your optimism."
                         }
+                        showMooseForecast = true
                     }
                 ) {
                     Text(
@@ -1047,12 +1062,6 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                 "🌅 ${moon.replace("\n", "  •  ")}   •   ❄️ $frost",
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFE1F4FF),
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 2
-            )
-            Text(
-                mooseLine,
-                color = Color(0xFFFFF1C2),
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 2
             )
