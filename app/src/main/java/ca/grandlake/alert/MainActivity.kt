@@ -373,46 +373,61 @@ fun GrandLakeAlertApp() {
     }
 
     LaunchedEffect(Unit) {
-
-        fireInfo = try {
-
-            withContext(Dispatchers.IO) {
-
-                val fireUrl =
-                    "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
-                        "New_Brunswick_Fires/" +
-                        "New_Brunswick_Fire_Locations/" +
-                        "FeatureServer/0/query" +
-                        "?where=1%3D1" +
-                        "&outFields=FIELD_FIRE_NAME" +
-                        "&returnGeometry=false" +
-                        "&f=json"
-
-                val json =
-                    JSONObject(
-                        URL(fireUrl).readText()
-                    )
-
-                val features =
-                    json.optJSONArray("features")
-
-                val count =
-                    features?.length() ?: 0
-
-                if (count == 0) {
-
-                    "✅ No wildfire locations reported"
-
-                } else {
-
-                    "🔥 $count NB wildfire location" +
-                        if (count == 1) "" else "s"
+        while (true) {
+            val fireStatus = try {
+                withContext(Dispatchers.IO) {
+                    val fireUrl =
+                        "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
+                            "New_Brunswick_Fires/New_Brunswick_Fire_Locations/" +
+                            "FeatureServer/0/query?where=1%3D1&outFields=FIELD_FIRE_NAME" +
+                            "&returnGeometry=false&f=json"
+                    val json = JSONObject(URL(fireUrl).openConnection().apply {
+                        connectTimeout = 10000
+                        readTimeout = 10000
+                    }.getInputStream().bufferedReader().use { it.readText() })
+                    val count = json.optJSONArray("features")?.length() ?: 0
+                    if (count == 0) "✅ No wildfire locations reported"
+                    else "🔥 $count NB wildfire location" + if (count == 1) "" else "s"
                 }
+            } catch (_: Exception) {
+                "Wildfire locations unavailable"
             }
 
-        } catch (_: Exception) {
+            val burnStatus = try {
+                withContext(Dispatchers.IO) {
+                    val burnUrl =
+                        "https://gis-erd-der.gnb.ca/gisserver/rest/services/" +
+                            "FireWeather/BurnCategories/MapServer/0/query" +
+                            "?where=1%3D1&outFields=NAME%2CPUBLICCATEGORY" +
+                            "&returnGeometry=false&f=json"
+                    val json = JSONObject(URL(burnUrl).openConnection().apply {
+                        connectTimeout = 10000
+                        readTimeout = 10000
+                    }.getInputStream().bufferedReader().use { it.readText() })
+                    val features = json.optJSONArray("features")
+                    var category = -1
+                    if (features != null) {
+                        for (i in 0 until features.length()) {
+                            val attrs = features.optJSONObject(i)?.optJSONObject("attributes") ?: continue
+                            if (attrs.optString("NAME").contains("Queens", ignoreCase = true)) {
+                                category = attrs.optInt("PUBLICCATEGORY", -1)
+                                break
+                            }
+                        }
+                    }
+                    when (category) {
+                        1 -> "🟥 Queens burn conditions: NO BURN"
+                        2 -> "🟨 Queens burn conditions: 8 PM–8 AM only"
+                        3 -> "🟩 Queens burn conditions: BURN PERMITTED"
+                        else -> "Queens burn conditions unavailable • check official map"
+                    }
+                }
+            } catch (_: Exception) {
+                "Queens burn conditions unavailable • check official map"
+            }
 
-            "Wildfire information unavailable"
+            fireInfo = "$fireStatus\n$burnStatus"
+            kotlinx.coroutines.delay(30 * 60 * 1000L)
         }
     }
 
@@ -610,7 +625,7 @@ fun GrandLakeAlertApp() {
             title = "Fire",
             icon = "🔥",
             subtitle = fireInfo,
-            url = "https://nbdnr.maps.arcgis.com/apps/dashboards/7bb8645cf75c4aa2b7a43a3123f9e17f#locale=en-CA",
+            url = "https://www.gnb.ca/en/emergency/fire-watch.html",
             accent = Color(0xFFFF7043)
         ),
 
@@ -846,9 +861,13 @@ fun WeatherDashboardScreen(onBack: () -> Unit) {
                     val code=c.optInt("weather_code",-1)
                     val desc=when(code){0->"Clear sky";1->"Mainly clear";2->"Partly cloudy";3->"Overcast";45,48->"Fog";51,53,55->"Drizzle";56,57->"Freezing drizzle";61,63,65->"Rain";66,67->"Freezing rain";71,73,75,77->"Snow";80,81,82->"Rain showers";85,86->"Snow showers";95,96,99->"Thunderstorm";else->"Conditions available"}
                     val low=lo?.optDouble(1,Double.NaN)?:Double.NaN
+                    // Open-Meteo phase fraction: 0/1=new, .25=first quarter, .5=full, .75=last quarter.
                     val ph=phase?.optDouble(0,Double.NaN)?:Double.NaN
                     val p=if(ph.isFinite()) ((ph%1.0)+1.0)%1.0 else -1.0
-                    val moonName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon (0/4 lit)";p<0.22->"Waxing Crescent";p<0.28->"First Quarter (1/2 lit)";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon (4/4 lit)";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter (1/2 lit)";else->"Waning Crescent"}
+                    val illumination=if(p>=0) ((1.0-kotlin.math.cos(2.0*Math.PI*p))*50.0+0.5).toInt() else -1
+                    val moonIcon=when {p<0->"🌙";p<0.035||p>=0.965->"🌑";p<0.22->"🌒";p<0.28->"🌓";p<0.47->"🌔";p<0.53->"🌕";p<0.72->"🌖";p<0.78->"🌗";else->"🌘"}
+                    val moonPhaseName=when {p<0->"Moon phase unavailable";p<0.035||p>=0.965->"New Moon";p<0.22->"Waxing Crescent";p<0.28->"First Quarter";p<0.47->"Waxing Gibbous";p<0.53->"Full Moon";p<0.72->"Waning Gibbous";p<0.78->"Last Quarter";else->"Waning Crescent"}
+                    val moonName=if(illumination>=0) "$moonIcon $moonPhaseName • $illumination% lit" else "$moonIcon $moonPhaseName"
                     val frostText=when { !low.isFinite()->"Frost estimate unavailable";low<=0->"❄️ Frost likely • forecast low ${n(low)}°C";low<=2->"⚠️ Frost possible • forecast low ${n(low)}°C";else->"Low frost risk • forecast low ${n(low)}°C" }
                     listOf(
                         "${desc}\n${n(c.optDouble("temperature_2m",Double.NaN))}°C • Feels like ${n(c.optDouble("apparent_temperature",Double.NaN))}°C\nWind ${n(c.optDouble("wind_speed_10m",Double.NaN))} km/h • Humidity ${n(c.optDouble("relative_humidity_2m",Double.NaN))}%",
