@@ -87,7 +87,8 @@ data class Tile(
     val url: String?,
     val accent: Color,
     val chat: Boolean = false,
-    val weather: Boolean = false
+    val weather: Boolean = false,
+    val socialMedia: Boolean = false
 )
 
 class MainActivity : ComponentActivity() {
@@ -659,6 +660,15 @@ fun GrandLakeAlertApp() {
             url = null,
             accent = Color(0xFF29B6F6),
             chat = true
+        ),
+
+        Tile(
+            title = "Social Media",
+            icon = "👥",
+            subtitle = "Local Facebook groups & community events",
+            url = "https://www.facebook.com/search/groups/?q=Grand%20Lake%20New%20Brunswick",
+            accent = Color(0xFF64B5F6),
+            socialMedia = true
         )
     )
 
@@ -803,6 +813,9 @@ fun GrandLakeAlertApp() {
                                     tile = tile,
                                     context = context,
                                     onChat = { if (tile.chat) showChat = true },
+                                    onSocialMedia = { if (tile.socialMedia && tile.url != null) {
+                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tile.url))) } catch (_: Exception) {}
+                                    } },
                                     onWeather = { if (tile.weather) showWeather = !showWeather },
                                     weatherExpanded = showWeather
                                 )
@@ -1253,6 +1266,7 @@ fun AlertTile(
     tile: Tile,
     context: android.content.Context,
     onChat: () -> Unit,
+    onSocialMedia: () -> Unit,
     onWeather: () -> Unit,
     weatherExpanded: Boolean
 ) {
@@ -1355,9 +1369,9 @@ fun AlertTile(
                             softWrap = false
                         )
                     }
-                } else if (tile.chat) {
+                } else if (tile.chat || tile.socialMedia) {
                     TextButton(
-                        onClick = onChat,
+                        onClick = if (tile.socialMedia) onSocialMedia else onChat,
                         modifier = Modifier.height(32.dp)
                     ) {
                         Text(
