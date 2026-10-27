@@ -23,6 +23,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -91,6 +92,105 @@ data class Tile(
     val socialMedia: Boolean = false
 )
 
+data class SocialPost(
+    val title: String,
+    val body: String,
+    val link: String,
+    val published: String
+)
+
+private fun fetchSocialPosts(): List<SocialPost> {
+    val connection = URL("https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml").openConnection().apply {
+        connectTimeout = 10000
+        readTimeout = 15000
+        setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
+        setRequestProperty("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
+    }
+    val parser = XmlPullParserFactory.newInstance().newPullParser()
+    connection.getInputStream().bufferedReader().use { reader -> parser.setInput(reader) }
+
+    val posts = mutableListOf<SocialPost>()
+    var inItem = false
+    var currentTag = ""
+    var title = ""
+    var description = ""
+    var link = ""
+    var published = ""
+    var event = parser.eventType
+
+    while (event != XmlPullParser.END_DOCUMENT && posts.size < 12) {
+        when (event) {
+            XmlPullParser.START_TAG -> {
+                val tag = parser.name.lowercase()
+                if (tag == "item" || tag == "entry") {
+                    inItem = true
+                    title = ""
+                    description = ""
+                    link = ""
+                    published = ""
+                } else if (inItem) {
+                    currentTag = tag
+                    if (tag == "link") {
+                        val href = parser.getAttributeValue(null, "href")
+                        if (!href.isNullOrBlank()) link = href
+                    }
+                }
+            }
+            XmlPullParser.TEXT, XmlPullParser.CDSECT -> {
+                if (inItem) {
+                    val value = parser.text ?: ""
+                    when (currentTag) {
+                        "title" -> title += value
+                        "description", "content:encoded", "content" -> description += value
+                        "link" -> link += value
+                        "pubdate", "published", "updated", "dc:date" -> published += value
+                    }
+                }
+            }
+            XmlPullParser.END_TAG -> {
+                val tag = parser.name.lowercase()
+                if (tag == "item" || tag == "entry") {
+                    inItem = false
+                    val cleanBody = description
+                        .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
+                        .replace(Regex("(?is)<style[^>]*>.*?</style>"), " ")
+                        .replace(Regex("(?is)<[^>]*>"), " ")
+                        .replace("&nbsp;", " ")
+                        .replace("&#39;", "'")
+                        .replace("&quot;", "\"")
+                        .replace("&amp;", "&")
+                        .replace("&lt;", "<")
+                        .replace("&gt;", ">")
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                    val cleanTitle = title.trim()
+                    val text = when {
+                        cleanBody.isNotBlank() -> cleanBody
+                        cleanTitle.isNotBlank() -> cleanTitle
+                        else -> ""
+                    }
+                    val postLink = link.trim()
+                    if (text.isNotBlank() && postLink.startsWith("http")) {
+                        posts.add(
+                            SocialPost(
+                                title = cleanTitle.ifBlank { "Community post" },
+                                body = text.take(500),
+                                link = postLink,
+                                published = published.trim()
+                            )
+                        )
+                    }
+                    currentTag = ""
+                } else if (inItem && tag == currentTag) {
+                    currentTag = ""
+                }
+            }
+        }
+        event = parser.next()
+    }
+    return posts.distinctBy { it.link }.take(8)
+}
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,6 +239,9 @@ fun GrandLakeAlertApp() {
     var outageInfo by remember {
         mutableStateOf("Checking NB Power outage information…")
     }
+
+    var socialPosts by remember { mutableStateOf<List<SocialPost>>(emptyList()) }
+    var socialFeedStatus by remember { mutableStateOf("Loading community posts…") }
 
     var showTiles by remember {
         mutableStateOf(false)
@@ -588,6 +691,25 @@ fun GrandLakeAlertApp() {
         showTiles = true
     }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val loadedPosts = withContext(Dispatchers.IO) { fetchSocialPosts() }
+                socialPosts = loadedPosts
+                socialFeedStatus = if (loadedPosts.isEmpty()) {
+                    "No recent posts available"
+                } else {
+                    "${loadedPosts.size} community posts loaded"
+                }
+            } catch (_: Exception) {
+                if (socialPosts.isEmpty()) {
+                    socialFeedStatus = "Feed unavailable • tap OPEN for Facebook"
+                }
+            }
+            kotlinx.coroutines.delay(15 * 60 * 1000L)
+        }
+    }
+
     val tiles = listOf(
 
         Tile(
@@ -665,8 +787,8 @@ fun GrandLakeAlertApp() {
         Tile(
             title = "Social Media",
             icon = "👥",
-            subtitle = "Local Facebook groups & community events",
-            url = "https://www.facebook.com/search/groups/?q=Grand%20Lake%20New%20Brunswick",
+            subtitle = socialFeedStatus,
+            url = "https://www.facebook.com/groups/571497902912015/",
             accent = Color(0xFF64B5F6),
             socialMedia = true
         )
@@ -817,7 +939,8 @@ fun GrandLakeAlertApp() {
                                         try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tile.url))) } catch (_: Exception) {}
                                     } },
                                     onWeather = { if (tile.weather) showWeather = !showWeather },
-                                    weatherExpanded = showWeather
+                                    weatherExpanded = showWeather,
+                                    socialPosts = socialPosts
                                 )
                             }
                         }
@@ -1268,7 +1391,8 @@ fun AlertTile(
     onChat: () -> Unit,
     onSocialMedia: () -> Unit,
     onWeather: () -> Unit,
-    weatherExpanded: Boolean
+    weatherExpanded: Boolean,
+    socialPosts: List<SocialPost>
 ) {
     Card(
         modifier = Modifier
@@ -1339,7 +1463,9 @@ fun AlertTile(
             Spacer(modifier = Modifier.height(3.dp))
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopStart) {
-                if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
+                if (tile.socialMedia) {
+                    SocialMediaTicker(posts = socialPosts, fallback = tile.subtitle, context = context)
+                } else if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
                     AircraftTicker(text = tile.subtitle, compact = true)
                 } else {
                     Text(
@@ -1388,6 +1514,59 @@ fun AlertTile(
     }
 }
 
+
+@Composable
+fun SocialMediaTicker(
+    posts: List<SocialPost>,
+    fallback: String,
+    context: android.content.Context
+) {
+    var currentIndex by remember(posts) { mutableStateOf(0) }
+    LaunchedEffect(posts) {
+        currentIndex = 0
+        while (posts.size > 1) {
+            kotlinx.coroutines.delay(4200L)
+            currentIndex = (currentIndex + 1) % posts.size
+        }
+    }
+
+    val post = posts.getOrNull(currentIndex)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(68.dp)
+            .clickable(enabled = post != null) {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(post?.link)))
+                } catch (_: Exception) {
+                }
+            },
+        verticalArrangement = Arrangement.Top
+    ) {
+        if (post == null) {
+            Text(
+                text = fallback,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.LightGray,
+                maxLines = 3
+            )
+        } else {
+            Text(
+                text = post.body,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.LightGray,
+                maxLines = 3
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = "COMMUNITY • UNVERIFIED" + if (post.published.isNotBlank()) " • ${post.published}" else "",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF80CBC4),
+                maxLines = 1
+            )
+        }
+    }
+}
 
 @Composable
 fun AircraftTicker(text: String, compact: Boolean = false) {
