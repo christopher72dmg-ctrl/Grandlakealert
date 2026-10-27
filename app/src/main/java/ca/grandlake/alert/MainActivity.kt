@@ -107,7 +107,8 @@ private fun fetchSocialPosts(): List<SocialPost> {
         setRequestProperty("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
     }
     val parser = XmlPullParserFactory.newInstance().newPullParser()
-    connection.getInputStream().bufferedReader().use { reader -> parser.setInput(reader) }
+    val input = connection.getInputStream()
+    parser.setInput(input, "UTF-8")
 
     val posts = mutableListOf<SocialPost>()
     var inItem = false
@@ -188,6 +189,7 @@ private fun fetchSocialPosts(): List<SocialPost> {
         }
         event = parser.next()
     }
+    input.close()
     return posts.distinctBy { it.link }.take(8)
 }
 
