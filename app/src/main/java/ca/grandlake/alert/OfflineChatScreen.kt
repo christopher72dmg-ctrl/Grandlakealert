@@ -107,12 +107,20 @@ private class NearbyChatManager(context: Context) {
             .put("hops", message.hops)
             .put("path", message.path.joinToString(" → "))
 
-        client.sendPayload(
-            endpointIds,
-            Payload.fromBytes(
-                json.toString().toByteArray(StandardCharsets.UTF_8)
-            )
+        val payload = Payload.fromBytes(
+            json.toString().toByteArray(StandardCharsets.UTF_8)
         )
+
+        client.sendPayload(endpointIds, payload)
+            .addOnSuccessListener {
+                onStatus("📤 Transfer accepted by Nearby. Waiting for delivery confirmation…")
+            }
+            .addOnFailureListener { error ->
+                onStatus(
+                    "❌ Message send failed: " +
+                        (error.message ?: "Nearby rejected the transfer")
+                )
+            }
     }
 
     private fun relay(
@@ -142,8 +150,13 @@ private class NearbyChatManager(context: Context) {
         ) {
             if (payload.type != Payload.Type.BYTES) return
 
-            val bytes = payload.asBytes() ?: return
+            val bytes = payload.asBytes() ?: run {
+                onStatus("⚠️ A nearby payload arrived without readable bytes.")
+                return
+            }
             val raw = String(bytes, StandardCharsets.UTF_8)
+            val senderName = discovered[endpointId] ?: "Nearby phone"
+            onStatus("📥 Data received from " + senderName + " (" + bytes.size + " bytes)")
 
             try {
                 val json = JSONObject(raw)
@@ -170,6 +183,7 @@ private class NearbyChatManager(context: Context) {
                 )
 
                 if (message.text.isNotBlank()) {
+                    onStatus("📩 Message received from " + message.origin)
                     onMessage(
                         "From " + message.origin +
                             ": " + message.text +
@@ -198,6 +212,25 @@ private class NearbyChatManager(context: Context) {
             endpointId: String,
             update: PayloadTransferUpdate
         ) {
+            val peerName = discovered[endpointId] ?: "Nearby phone"
+
+            when (update.status) {
+                PayloadTransferUpdate.Status.SUCCESS -> {
+                    onStatus("✅ Message delivered to " + peerName)
+                }
+                PayloadTransferUpdate.Status.FAILURE -> {
+                    onStatus("❌ Message transfer failed to " + peerName)
+                }
+                PayloadTransferUpdate.Status.CANCELED -> {
+                    onStatus("⚠️ Message transfer cancelled for " + peerName)
+                }
+                PayloadTransferUpdate.Status.IN_PROGRESS -> {
+                    onStatus(
+                        "📡 Sending to " + peerName + "… " +
+                            update.bytesTransferred + "/" + update.totalBytes + " bytes"
+                    )
+                }
+            }
         }
     }
 
@@ -395,13 +428,8 @@ private class NearbyChatManager(context: Context) {
             )
 
         seenMessages.add(meshMessage.id)
+        onStatus("📤 Sending message to " + ids.size + " direct connection(s)…")
         sendEnvelope(ids, meshMessage)
-
-        onStatus(
-            "📤 Sent to " +
-                ids.size +
-                " direct connection(s)"
-        )
     }
 
     fun stop() {
