@@ -580,13 +580,6 @@ private class NearbyChatManager(context: Context) {
 
         val ids = connected.toList()
 
-        if (ids.isEmpty()) {
-            onStatus(
-                "No nearby phone is connected yet."
-            )
-            return
-        }
-
         val meshMessage =
             MeshMessage(
                 id = UUID.randomUUID().toString(),
