@@ -809,7 +809,7 @@ fun GrandLakeAlertApp() {
     MaterialTheme(
         colorScheme = darkColors
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+
         if (showSources) {
             AlertDialog(
                 onDismissRequest = { showSources = false },
@@ -829,6 +829,8 @@ fun GrandLakeAlertApp() {
                     }
                 }
             )
+        } else if (showChat) {
+            OfflineChatScreen(onBack = { showChat = false })
         } else {
             Scaffold(
 
@@ -949,7 +951,6 @@ fun GrandLakeAlertApp() {
             }
         }
         }
-        OfflineChatScreen(visible = showChat, onBack = { showChat = false })
     }
 }
 
