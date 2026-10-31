@@ -67,8 +67,153 @@ private data class MeshMessage(
     val origin: String,
     val text: String,
     val hops: Int,
-    val path: List<String>
+    val path: List<String>,
+    val createdAt: Long = System.currentTimeMillis()
 )
+
+/**
+ * Durable message queue for Store & Hop.
+ *
+ * Pending messages survive screen changes, app restarts and device restarts.
+ * A message is removed from this device's queue only after Nearby reports
+ * that another compatible app received the payload.
+ */
+private class StoreHopQueue(context: Context) {
+    private val preferences = context.getSharedPreferences(
+        "grand_lake_store_hop",
+        Context.MODE_PRIVATE
+    )
+    private val lock = Any()
+    private val pending = linkedMapOf<String, MeshMessage>()
+    private val seen = linkedSetOf<String>()
+
+    init {
+        synchronized(lock) {
+            loadPendingLocked()
+            loadSeenLocked()
+            purgeExpiredLocked()
+        }
+    }
+
+    fun enqueueOutgoing(message: MeshMessage) {
+        synchronized(lock) {
+            purgeExpiredLocked()
+            seen.add(message.id)
+            pending[message.id] = message
+            trimLocked()
+            saveLocked()
+        }
+    }
+
+    fun acceptIncoming(message: MeshMessage, forwardCopy: MeshMessage?): Boolean {
+        synchronized(lock) {
+            purgeExpiredLocked()
+            if (message.id.isBlank() || seen.contains(message.id)) return false
+            seen.add(message.id)
+            if (forwardCopy != null && forwardCopy.createdAt > System.currentTimeMillis() - MESSAGE_TTL_MS) {
+                pending[message.id] = forwardCopy
+            }
+            trimLocked()
+            saveLocked()
+            return true
+        }
+    }
+
+    fun pendingMessages(): List<MeshMessage> {
+        synchronized(lock) {
+            purgeExpiredLocked()
+            saveLocked()
+            return pending.values.toList()
+        }
+    }
+
+    fun markForwarded(messageId: String) {
+        synchronized(lock) {
+            if (pending.remove(messageId) != null) saveLocked()
+        }
+    }
+
+    private fun loadPendingLocked() {
+        val raw = preferences.getString("pending", "[]") ?: "[]"
+        try {
+            val array = org.json.JSONArray(raw)
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val pathArray = item.optJSONArray("path") ?: org.json.JSONArray()
+                val path = (0 until pathArray.length()).mapNotNull { pathArray.optString(it).takeIf(String::isNotBlank) }
+                val message = MeshMessage(
+                    id = item.optString("id"),
+                    origin = item.optString("origin", "Unknown"),
+                    text = item.optString("text"),
+                    hops = item.optInt("hops", 0),
+                    path = path,
+                    createdAt = item.optLong("createdAt", System.currentTimeMillis())
+                )
+                if (message.id.isNotBlank() && message.text.isNotBlank()) {
+                    pending[message.id] = message
+                }
+            }
+        } catch (_: Exception) {
+            pending.clear()
+        }
+    }
+
+    private fun loadSeenLocked() {
+        val raw = preferences.getString("seen", "[]") ?: "[]"
+        try {
+            val array = org.json.JSONArray(raw)
+            for (i in 0 until array.length()) {
+                val id = array.optString(i)
+                if (id.isNotBlank()) seen.add(id)
+            }
+        } catch (_: Exception) {
+            seen.clear()
+        }
+    }
+
+    private fun purgeExpiredLocked() {
+        val cutoff = System.currentTimeMillis() - MESSAGE_TTL_MS
+        pending.entries.removeAll { it.value.createdAt < cutoff }
+    }
+
+    private fun trimLocked() {
+        while (pending.size > MAX_PENDING_MESSAGES) {
+            pending.remove(pending.keys.first())
+        }
+        while (seen.size > MAX_SEEN_MESSAGES) {
+            seen.remove(seen.first())
+        }
+    }
+
+    private fun saveLocked() {
+        val pendingArray = org.json.JSONArray()
+        pending.values.forEach { message ->
+            val pathArray = org.json.JSONArray()
+            message.path.forEach(pathArray::put)
+            pendingArray.put(
+                JSONObject()
+                    .put("id", message.id)
+                    .put("origin", message.origin)
+                    .put("text", message.text)
+                    .put("hops", message.hops)
+                    .put("path", pathArray)
+                    .put("createdAt", message.createdAt)
+            )
+        }
+        val seenArray = org.json.JSONArray()
+        seen.forEach(seenArray::put)
+        preferences.edit()
+            .putString("pending", pendingArray.toString())
+            .putString("seen", seenArray.toString())
+            .apply()
+    }
+
+    companion object {
+        private const val MESSAGE_TTL_MS = 24L * 60L * 60L * 1000L
+        private const val MAX_PENDING_MESSAGES = 250
+        private const val MAX_SEEN_MESSAGES = 1000
+    }
+}
 
 private class NearbyChatManager(context: Context) {
 
@@ -80,7 +225,8 @@ private class NearbyChatManager(context: Context) {
     private val discovered = linkedMapOf<String, String>()
     private val requested = mutableSetOf<String>()
     private val connected = mutableSetOf<String>()
-    private val seenMessages = mutableSetOf<String>()
+    private val storeHopQueue = StoreHopQueue(context)
+    private val payloadMessageIds = mutableMapOf<Long, String>()
 
     var onStatus: (String) -> Unit = {}
     var onNearbyCount: (Int) -> Unit = {}
@@ -108,39 +254,43 @@ private class NearbyChatManager(context: Context) {
             .put("hops", message.hops)
             .put("path", message.path.joinToString(" → "))
 
+        json.put("createdAt", message.createdAt)
         val payload = Payload.fromBytes(
             json.toString().toByteArray(StandardCharsets.UTF_8)
         )
+        payloadMessageIds[payload.id] = message.id
 
         client.sendPayload(endpointIds, payload)
             .addOnSuccessListener {
-                onStatus("📤 Transfer accepted by Nearby. Waiting for delivery confirmation…")
+                onStatus("📡 Message handed to a nearby phone. Keeping it queued until transfer completes…")
             }
             .addOnFailureListener { error ->
+                payloadMessageIds.remove(payload.id)
                 onStatus(
-                    "❌ Message send failed: " +
+                    "⚠️ Message saved for another attempt: " +
                         (error.message ?: "Nearby rejected the transfer")
                 )
             }
     }
 
-    private fun relay(
-        message: MeshMessage,
-        incomingEndpoint: String
-    ) {
-        if (message.hops >= MAX_HOPS) return
+    private fun flushPending() {
+        if (connected.isEmpty()) return
 
-        val nextPath = message.path + nodeName
-        val relayMessage = message.copy(
-            hops = message.hops + 1,
-            path = nextPath
-        )
+        val pendingMessages = storeHopQueue.pendingMessages()
+        if (pendingMessages.isEmpty()) return
 
-        val targets = connected.filter {
-            it != incomingEndpoint
+        pendingMessages.forEach { message ->
+            // Do not immediately send a message back to a node already on its route.
+            val targets = connected.filter { endpointId ->
+                val peerName = discovered[endpointId] ?: ""
+                endpointId !in emptySet<String>() &&
+                    peerName.isNotBlank() &&
+                    peerName !in message.path
+            }
+            if (targets.isNotEmpty()) {
+                sendEnvelope(targets, message)
+            }
         }
-
-        sendEnvelope(targets, relayMessage)
     }
 
     private val payloadCallback = object : PayloadCallback() {
@@ -163,9 +313,7 @@ private class NearbyChatManager(context: Context) {
                 val json = JSONObject(raw)
                 val id = json.optString("id")
 
-                if (id.isBlank() || id in seenMessages) return
-
-                seenMessages.add(id)
+                if (id.isBlank()) return
 
                 val pathText = json.optString("path")
                 val path =
@@ -180,21 +328,36 @@ private class NearbyChatManager(context: Context) {
                     origin = json.optString("origin", "Unknown"),
                     text = json.optString("text"),
                     hops = json.optInt("hops", 0),
-                    path = path
+                    path = path,
+                    createdAt = json.optLong("createdAt", System.currentTimeMillis())
                 )
 
-                if (message.text.isNotBlank()) {
-                    onStatus("📩 Message received from " + message.origin)
-                    onMessage(
-                        "From " + message.origin +
-                            ": " + message.text +
-                            "\nRoute: " +
-                            message.path.joinToString(" → ") +
-                            "\nHops: " + message.hops
-                    )
+                if (message.text.isBlank()) return
+                if (message.createdAt < System.currentTimeMillis() - 24L * 60L * 60L * 1000L) {
+                    onStatus("⌛ An expired message was ignored.")
+                    return
                 }
 
-                relay(message, endpointId)
+                val forwardCopy = if (message.hops < MAX_HOPS && nodeName !in message.path) {
+                    message.copy(
+                        hops = message.hops + 1,
+                        path = message.path + nodeName
+                    )
+                } else {
+                    null
+                }
+
+                if (!storeHopQueue.acceptIncoming(message, forwardCopy)) return
+
+                onStatus("📩 Message received from " + message.origin)
+                onMessage(
+                    "From " + message.origin +
+                        ": " + message.text +
+                        "\nRoute: " +
+                        message.path.joinToString(" → ") +
+                        "\nHops: " + message.hops
+                )
+                flushPending()
 
             } catch (_: Exception) {
                 val name =
@@ -217,10 +380,15 @@ private class NearbyChatManager(context: Context) {
 
             when (update.status) {
                 PayloadTransferUpdate.Status.SUCCESS -> {
-                    onStatus("✅ Message delivered to " + peerName)
+                    val messageId = payloadMessageIds.remove(update.payloadId)
+                    if (messageId != null) {
+                        storeHopQueue.markForwarded(messageId)
+                    }
+                    onStatus("✅ Message transferred to " + peerName)
                 }
                 PayloadTransferUpdate.Status.FAILURE -> {
-                    onStatus("❌ Message transfer failed to " + peerName)
+                    payloadMessageIds.remove(update.payloadId)
+                    onStatus("⚠️ Transfer to " + peerName + " failed. Message remains saved.")
                 }
                 PayloadTransferUpdate.Status.CANCELED -> {
                     onStatus("⚠️ Message transfer cancelled for " + peerName)
@@ -279,6 +447,7 @@ private class NearbyChatManager(context: Context) {
                             (discovered[endpointId]
                                 ?: "nearby phone")
                     )
+                    flushPending()
                 } else {
                     requested.remove(endpointId)
                     onStatus(
@@ -428,9 +597,13 @@ private class NearbyChatManager(context: Context) {
                 path = listOf(nodeName)
             )
 
-        seenMessages.add(meshMessage.id)
-        onStatus("📤 Sending message to " + ids.size + " direct connection(s)…")
-        sendEnvelope(ids, meshMessage)
+        storeHopQueue.enqueueOutgoing(meshMessage)
+        if (ids.isEmpty()) {
+            onStatus("💾 Message saved. It will send automatically when a nearby phone connects.")
+        } else {
+            onStatus("📤 Message saved and queued for nearby delivery…")
+            flushPending()
+        }
     }
 
     fun stop() {
@@ -720,7 +893,7 @@ fun OfflineChatScreen(
 
                     Text(
                         text =
-                            "Mesh test: messages can relay through another phone.",
+                            "Store & Hop is automatic. Undelivered messages stay saved for up to 24 hours.",
                         color = Color.Gray,
                         style =
                             MaterialTheme.typography
