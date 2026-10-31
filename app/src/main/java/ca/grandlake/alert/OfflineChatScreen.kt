@@ -432,11 +432,10 @@ private class NearbyChatManager(context: Context) {
 
             when (update.status) {
                 PayloadTransferUpdate.Status.SUCCESS -> {
-                    val messageId = payloadMessageIds.remove(update.payloadId)
-                    if (messageId != null) {
-                        storeHopQueue.markForwarded(messageId)
-                    }
-                    onStatus("✅ Message transferred to " + peerName)
+                    // Nearby transfer success is not proof that the other app
+                    // committed the message. Keep it queued until stored_ack.
+                    payloadMessageIds.remove(update.payloadId)
+                    onStatus("📨 Transfer complete to " + peerName + ". Waiting for save confirmation…")
                 }
                 PayloadTransferUpdate.Status.FAILURE -> {
                     payloadMessageIds.remove(update.payloadId)
