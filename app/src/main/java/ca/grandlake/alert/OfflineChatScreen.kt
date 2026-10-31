@@ -95,27 +95,41 @@ private class StoreHopQueue(context: Context) {
         }
     }
 
-    fun enqueueOutgoing(message: MeshMessage) {
+    fun enqueueOutgoing(message: MeshMessage): Boolean {
         synchronized(lock) {
             purgeExpiredLocked()
             seen.add(message.id)
             pending[message.id] = message
             trimLocked()
-            saveLocked()
+            val saved = saveLocked()
+            if (!saved) {
+                pending.remove(message.id)
+                seen.remove(message.id)
+            }
+            return saved
         }
     }
 
-    fun acceptIncoming(message: MeshMessage, forwardCopy: MeshMessage?): Boolean {
+    // Returns 0 when saving failed, 1 when this message was already saved,
+    // and 2 when it was newly saved on this phone.
+    fun acceptIncoming(message: MeshMessage, forwardCopy: MeshMessage?): Int {
         synchronized(lock) {
             purgeExpiredLocked()
-            if (message.id.isBlank() || seen.contains(message.id)) return false
+            if (message.id.isBlank()) return 0
+            if (seen.contains(message.id)) return 1
+
             seen.add(message.id)
             if (forwardCopy != null && forwardCopy.createdAt > System.currentTimeMillis() - MESSAGE_TTL_MS) {
                 pending[message.id] = forwardCopy
             }
             trimLocked()
-            saveLocked()
-            return true
+            val saved = saveLocked()
+            if (!saved) {
+                pending.remove(message.id)
+                seen.remove(message.id)
+                return 0
+            }
+            return 2
         }
     }
 
@@ -185,7 +199,7 @@ private class StoreHopQueue(context: Context) {
         }
     }
 
-    private fun saveLocked() {
+    private fun saveLocked(): Boolean {
         val pendingArray = org.json.JSONArray()
         pending.values.forEach { message ->
             val pathArray = org.json.JSONArray()
@@ -202,10 +216,10 @@ private class StoreHopQueue(context: Context) {
         }
         val seenArray = org.json.JSONArray()
         seen.forEach(seenArray::put)
-        preferences.edit()
+        return preferences.edit()
             .putString("pending", pendingArray.toString())
             .putString("seen", seenArray.toString())
-            .apply()
+            .commit()
     }
 
     companion object {
@@ -248,6 +262,7 @@ private class NearbyChatManager(context: Context) {
         if (endpointIds.isEmpty()) return
 
         val json = JSONObject()
+            .put("type", "message")
             .put("id", message.id)
             .put("origin", message.origin)
             .put("text", message.text)
@@ -270,6 +285,22 @@ private class NearbyChatManager(context: Context) {
                     "⚠️ Message saved for another attempt: " +
                         (error.message ?: "Nearby rejected the transfer")
                 )
+            }
+    }
+
+    private fun sendStoredAcknowledgement(endpointId: String, messageId: String) {
+        val acknowledgement = JSONObject()
+            .put("type", "stored_ack")
+            .put("messageId", messageId)
+            .put("from", nodeName)
+
+        val payload = Payload.fromBytes(
+            acknowledgement.toString().toByteArray(StandardCharsets.UTF_8)
+        )
+        client.sendPayload(listOf(endpointId), payload)
+            .addOnFailureListener { error ->
+                onStatus("⚠️ Saved message, but acknowledgement could not be sent: " +
+                    (error.message ?: "Nearby transfer failed"))
             }
     }
 
@@ -310,8 +341,20 @@ private class NearbyChatManager(context: Context) {
 
             try {
                 val json = JSONObject(raw)
-                val id = json.optString("id")
+                if (json.optString("type") == "stored_ack") {
+                    val acknowledgedId = json.optString("messageId")
+                    if (acknowledgedId.isNotBlank()) {
+                        storeHopQueue.markForwarded(acknowledgedId)
+                        onStatus("✅ Nearby phone confirmed the message is safely saved.")
+                    }
+                    return
+                }
 
+                if (json.optString("type").isNotBlank() &&
+                    json.optString("type") != "message"
+                ) return
+
+                val id = json.optString("id")
                 if (id.isBlank()) return
 
                 val pathText = json.optString("path")
@@ -346,9 +389,19 @@ private class NearbyChatManager(context: Context) {
                     null
                 }
 
-                if (!storeHopQueue.acceptIncoming(message, forwardCopy)) return
+                val accepted = storeHopQueue.acceptIncoming(message, forwardCopy)
+                if (accepted == 0) {
+                    onStatus("⚠️ Message arrived, but this phone could not confirm it was saved. Sender should keep its copy.")
+                    return
+                }
 
-                onStatus("📩 Message received from " + message.origin)
+                // Acknowledge only after the message and de-duplication record
+                // have been synchronously committed to local storage.
+                sendStoredAcknowledgement(endpointId, message.id)
+
+                if (accepted == 1) return
+
+                onStatus("📩 Message received and saved from " + message.origin)
                 onMessage(
                     "From " + message.origin +
                         ": " + message.text +
@@ -589,7 +642,10 @@ private class NearbyChatManager(context: Context) {
                 path = listOf(nodeName)
             )
 
-        storeHopQueue.enqueueOutgoing(meshMessage)
+        if (!storeHopQueue.enqueueOutgoing(meshMessage)) {
+            onStatus("⚠️ Message could not be saved on this phone. Please try again.")
+            return
+        }
         if (ids.isEmpty()) {
             onStatus("💾 Message saved. It will send automatically when a nearby phone connects.")
         } else {
