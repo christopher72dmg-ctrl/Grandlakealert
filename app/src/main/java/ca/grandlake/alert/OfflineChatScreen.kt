@@ -501,8 +501,8 @@ fun OfflineChatScreen(
     var permissionRequested by remember { mutableStateOf(false) }
     var managerStarted by remember { mutableStateOf(false) }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
+    LaunchedEffect(messages.size, visible) {
+        if (visible && messages.isNotEmpty()) {
             messageListState.animateScrollToItem(messages.lastIndex)
         }
     }
