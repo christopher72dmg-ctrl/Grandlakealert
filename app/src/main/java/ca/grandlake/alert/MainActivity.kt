@@ -1701,3 +1701,4 @@ private fun fetchTideTicker(): String {
     }
     return "Saint John coastal reference • High ${label(high)} • Low ${label(low)} • CHS predictions"
 }
+}
