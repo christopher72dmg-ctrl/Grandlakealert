@@ -953,6 +953,7 @@ fun GrandLakeAlertApp() {
         }
     }
 }
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1700,5 +1701,4 @@ private fun fetchTideTicker(): String {
         return "$day ${timeFmt.format(local)} (${"%.1f".format(Locale.CANADA, event.height)} m)"
     }
     return "Saint John coastal reference • High ${label(high)} • Low ${label(low)} • CHS predictions"
-}
 }
