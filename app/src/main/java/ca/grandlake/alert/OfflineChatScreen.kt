@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -466,6 +467,7 @@ private fun nearbyPermissions(): Array<String> {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OfflineChatScreen(
+    visible: Boolean,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -494,6 +496,14 @@ fun OfflineChatScreen(
 
     val messages = remember {
         mutableStateListOf<String>()
+    }
+    val messageListState = rememberLazyListState()
+    var permissionRequested by remember { mutableStateOf(false) }
+
+    LaunchedEffect(messages.size, visible) {
+        if (visible && messages.isNotEmpty()) {
+            messageListState.animateScrollToItem(messages.lastIndex)
+        }
     }
 
     val manager = remember(context) {
@@ -560,8 +570,13 @@ fun OfflineChatScreen(
         manager.onMessage = { message ->
             messages.add(message)
         }
+    }
 
-        requestNearbyPermissions()
+    LaunchedEffect(visible) {
+        if (visible && !permissionRequested && !permissionReady) {
+            permissionRequested = true
+            requestNearbyPermissions()
+        }
     }
 
     LaunchedEffect(permissionReady) {
@@ -576,6 +591,7 @@ fun OfflineChatScreen(
         }
     }
 
+    if (visible) {
     Scaffold(
         containerColor = Color(0xFF101214),
         topBar = {
@@ -730,6 +746,7 @@ fun OfflineChatScreen(
             ) {
 
                 LazyColumn(
+                    state = messageListState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(10.dp),
@@ -816,5 +833,8 @@ fun OfflineChatScreen(
                 }
             }
         }
+    }
+    } else {
+        Spacer(modifier = Modifier.height(0.dp))
     }
 }
