@@ -829,9 +829,8 @@ fun GrandLakeAlertApp() {
                     }
                 }
             )
-        } else if (showChat) {
-            OfflineChatScreen(onBack = { showChat = false })
         } else {
+            Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
 
             containerColor = Color(0xFF101214),
@@ -950,6 +949,7 @@ fun GrandLakeAlertApp() {
                 )
             }
         }
+        OfflineChatScreen(visible = showChat, onBack = { showChat = false })
         }
     }
 }
