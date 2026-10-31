@@ -283,8 +283,7 @@ private class NearbyChatManager(context: Context) {
             // Do not immediately send a message back to a node already on its route.
             val targets = connected.filter { endpointId ->
                 val peerName = discovered[endpointId] ?: ""
-                endpointId !in emptySet<String>() &&
-                    peerName.isNotBlank() &&
+                peerName.isNotBlank() &&
                     peerName !in message.path
             }
             if (targets.isNotEmpty()) {
@@ -893,7 +892,7 @@ fun OfflineChatScreen(
 
                     Text(
                         text =
-                            "Store & Hop is automatic. Undelivered messages stay saved for up to 24 hours.",
+                            "Mesh test: messages can relay through another phone.",
                         color = Color.Gray,
                         style =
                             MaterialTheme.typography
