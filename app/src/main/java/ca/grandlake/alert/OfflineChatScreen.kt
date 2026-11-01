@@ -718,7 +718,6 @@ fun OfflineChatScreen(
         mutableStateListOf<String>()
     }
     val messageListState = rememberLazyListState()
-    var permissionRequested by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages.size, visible) {
         if (visible && messages.isNotEmpty()) {
@@ -792,9 +791,11 @@ fun OfflineChatScreen(
         }
     }
 
+    // Check/request permissions each time the chat screen becomes visible.
+    // The old one-shot latch could remain set after a denial, preventing Android
+    // from showing the permission prompt again when the user reopened Offline Chat.
     LaunchedEffect(visible) {
-        if (visible && !permissionRequested && !permissionReady) {
-            permissionRequested = true
+        if (visible && !permissionReady) {
             requestNearbyPermissions()
         }
     }
