@@ -199,10 +199,12 @@ private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
                         val value = parser.text ?: ""
                         when (currentTag) {
                             "title" -> title.append(value)
-                            "description", "encoded", "content", "summary" -> description.append(value)
+                            "description", "encoded", "content", "summary",
+                            "text", "attachedstorytext" -> description.append(value)
                             "link" -> if (link.isBlank()) link = value
-                            "guid", "id", "url" -> if (fallbackLink.isBlank()) fallbackLink = value
-                            "pubdate", "date", "published", "updated", "issued" -> published.append(value)
+                            "url" -> fallbackLink = value
+                            "guid", "id" -> if (fallbackLink.isBlank()) fallbackLink = value
+                            "pubdate", "date", "published", "updated", "issued", "time" -> published.append(value)
                         }
                     }
                 }
