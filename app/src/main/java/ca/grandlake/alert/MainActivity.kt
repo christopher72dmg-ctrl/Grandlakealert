@@ -105,110 +105,134 @@ private const val BACKUP_SOCIAL_FEED =
     "https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml"
 
 private fun fetchSocialPosts(): List<SocialPost> {
-    val primaryPosts = try {
-        fetchSocialPostsFromFeed(APIFY_SOCIAL_FEED)
-    } catch (_: Exception) {
-        emptyList()
+    val feedUrls = listOf(APIFY_SOCIAL_FEED, BACKUP_SOCIAL_FEED)
+    for (feedUrl in feedUrls) {
+        try {
+            val posts = fetchSocialPostsFromFeed(feedUrl)
+            if (posts.isNotEmpty()) return posts
+        } catch (_: Exception) {
+            // Try the next feed source without interrupting the dashboard.
+        }
     }
-    return if (primaryPosts.isNotEmpty()) {
-        primaryPosts
-    } else {
-        fetchSocialPostsFromFeed(BACKUP_SOCIAL_FEED)
-    }
+    return emptyList()
 }
 
 private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
     val connection = URL(feedUrl).openConnection().apply {
-        connectTimeout = 10000
-        readTimeout = 15000
-        setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
-        setRequestProperty("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
+        connectTimeout = 15000
+        readTimeout = 20000
+        setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GrandLakeAlert/1.0")
+        setRequestProperty(
+            "Accept",
+            "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
+        )
     }
-    val parser = XmlPullParserFactory.newInstance().newPullParser()
     val input = connection.getInputStream()
-    parser.setInput(input, "UTF-8")
+    try {
+        val parser = XmlPullParserFactory.newInstance().newPullParser()
+        parser.setInput(input, "UTF-8")
 
-    val posts = mutableListOf<SocialPost>()
-    var inItem = false
-    var currentTag = ""
-    var title = ""
-    var description = ""
-    var link = ""
-    var published = ""
-    var event = parser.eventType
+        val posts = mutableListOf<SocialPost>()
+        var inItem = false
+        var currentTag = ""
+        var title = StringBuilder()
+        var description = StringBuilder()
+        var link = ""
+        var fallbackLink = ""
+        var published = StringBuilder()
+        var event = parser.eventType
 
-    while (event != XmlPullParser.END_DOCUMENT && posts.size < 12) {
-        when (event) {
-            XmlPullParser.START_TAG -> {
-                val tag = parser.name.lowercase()
-                if (tag == "item" || tag == "entry") {
-                    inItem = true
-                    title = ""
-                    description = ""
-                    link = ""
-                    published = ""
-                } else if (inItem) {
-                    currentTag = tag
-                    if (tag == "link") {
-                        val href = parser.getAttributeValue(null, "href")
-                        if (!href.isNullOrBlank()) link = href
+        while (event != XmlPullParser.END_DOCUMENT && posts.size < 20) {
+            when (event) {
+                XmlPullParser.START_TAG -> {
+                    val tag = parser.name.lowercase(Locale.ROOT).substringAfter(':')
+                    if (tag == "item" || tag == "entry") {
+                        inItem = true
+                        currentTag = ""
+                        title = StringBuilder()
+                        description = StringBuilder()
+                        link = ""
+                        fallbackLink = ""
+                        published = StringBuilder()
+                    } else if (inItem) {
+                        currentTag = tag
+                        when (tag) {
+                            "link" -> {
+                                val href = parser.getAttributeValue(null, "href")
+                                    ?: (0 until parser.attributeCount)
+                                        .firstNotNullOfOrNull { index ->
+                                            if (parser.getAttributeName(index).equals("href", true))
+                                                parser.getAttributeValue(index) else null
+                                        }
+                                val rel = parser.getAttributeValue(null, "rel") ?: "alternate"
+                                if (!href.isNullOrBlank() &&
+                                    (link.isBlank() || rel.equals("alternate", true))) {
+                                    link = href
+                                }
+                            }
+                            "guid", "id", "url" -> {
+                                // Some feeds use a URL in guid/id instead of a link element.
+                            }
+                        }
                     }
                 }
-            }
-            XmlPullParser.TEXT, XmlPullParser.CDSECT -> {
-                if (inItem) {
-                    val value = parser.text ?: ""
-                    when (currentTag) {
-                        "title" -> title += value
-                        "description", "content:encoded", "content" -> description += value
-                        "link" -> link += value
-                        "pubdate", "published", "updated", "dc:date" -> published += value
+
+                XmlPullParser.TEXT, XmlPullParser.CDSECT, XmlPullParser.ENTITY_REF -> {
+                    if (inItem) {
+                        val value = parser.text ?: ""
+                        when (currentTag) {
+                            "title" -> title.append(value)
+                            "description", "encoded", "content", "summary" -> description.append(value)
+                            "link" -> if (link.isBlank()) link = value
+                            "guid", "id", "url" -> if (fallbackLink.isBlank()) fallbackLink = value
+                            "pubdate", "date", "published", "updated", "issued" -> published.append(value)
+                        }
                     }
                 }
-            }
-            XmlPullParser.END_TAG -> {
-                val tag = parser.name.lowercase()
-                if (tag == "item" || tag == "entry") {
-                    inItem = false
-                    val cleanBody = description
-                        .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
-                        .replace(Regex("(?is)<style[^>]*>.*?</style>"), " ")
-                        .replace(Regex("(?is)<[^>]*>"), " ")
-                        .replace("&nbsp;", " ")
-                        .replace("&#39;", "'")
-                        .replace("&quot;", "\"")
-                        .replace("&amp;", "&")
-                        .replace("&lt;", "<")
-                        .replace("&gt;", ">")
-                        .replace(Regex("\\s+"), " ")
-                        .trim()
-                    val cleanTitle = title.trim()
-                    val text = when {
-                        cleanBody.isNotBlank() -> cleanBody
-                        cleanTitle.isNotBlank() -> cleanTitle
-                        else -> ""
-                    }
-                    val postLink = link.trim()
-                    if (text.isNotBlank() && postLink.startsWith("http")) {
-                        posts.add(
-                            SocialPost(
-                                title = cleanTitle.ifBlank { "Community post" },
-                                body = text.take(500),
-                                link = postLink,
-                                published = published.trim()
+
+                XmlPullParser.END_TAG -> {
+                    val tag = parser.name.lowercase(Locale.ROOT).substringAfter(':')
+                    if (tag == "item" || tag == "entry") {
+                        inItem = false
+                        val cleanTitle = title.toString().trim()
+                        val rawBody = description.toString().ifBlank { cleanTitle }
+                        val cleanBody = android.text.Html.fromHtml(
+                            rawBody
+                                .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
+                                .replace(Regex("(?is)<style[^>]*>.*?</style>"), " "),
+                            android.text.Html.FROM_HTML_MODE_LEGACY
+                        ).toString().replace(Regex("\\s+"), " ").trim()
+
+                        val candidateLink = link.trim().ifBlank { fallbackLink.trim() }
+                        val postLink = if (candidateLink.startsWith("https://") ||
+                            candidateLink.startsWith("http://")) {
+                            candidateLink
+                        } else {
+                            "https://www.facebook.com/groups/571497902912015/"
+                        }
+
+                        if (cleanBody.isNotBlank() || cleanTitle.isNotBlank()) {
+                            posts.add(
+                                SocialPost(
+                                    title = cleanTitle.ifBlank { "Community post" },
+                                    body = (cleanBody.ifBlank { cleanTitle }).take(500),
+                                    link = postLink,
+                                    published = published.toString().trim()
+                                )
                             )
-                        )
+                        }
+                        currentTag = ""
+                    } else if (inItem && tag == currentTag) {
+                        currentTag = ""
                     }
-                    currentTag = ""
-                } else if (inItem && tag == currentTag) {
-                    currentTag = ""
                 }
             }
+            event = parser.next()
         }
-        event = parser.next()
+        return posts.distinctBy { it.link + it.body }.take(8)
+    } finally {
+        input.close()
     }
-    input.close()
-    return posts.distinctBy { it.link }.take(8)
 }
 
 class MainActivity : ComponentActivity() {
