@@ -99,8 +99,26 @@ data class SocialPost(
     val published: String
 )
 
+private const val APIFY_SOCIAL_FEED =
+    "https://api.apify.com/v2/datasets/l66gFAFi3ktYdNKOg/items?signature=MC4xNzk1MDQ0Nzg3MDYxLjFJMEFlR0lHMHY2MUJFZWxxc0FjTQ&format=rss&clean=true"
+private const val BACKUP_SOCIAL_FEED =
+    "https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml"
+
 private fun fetchSocialPosts(): List<SocialPost> {
-    val connection = URL("https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml").openConnection().apply {
+    val primaryPosts = try {
+        fetchSocialPostsFromFeed(APIFY_SOCIAL_FEED)
+    } catch (_: Exception) {
+        emptyList()
+    }
+    return if (primaryPosts.isNotEmpty()) {
+        primaryPosts
+    } else {
+        fetchSocialPostsFromFeed(BACKUP_SOCIAL_FEED)
+    }
+}
+
+private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
+    val connection = URL(feedUrl).openConnection().apply {
         connectTimeout = 10000
         readTimeout = 15000
         setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
