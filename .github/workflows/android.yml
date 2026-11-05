@@ -1,5 +1,8 @@
 name: Build Grand Lake Alert
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ "main" ]
@@ -33,3 +36,13 @@ jobs:
           name: grand-lake-alert-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Publish APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Latest Grand Lake Alert APK
+          body: Automatically built debug APK from the latest main branch commit.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
