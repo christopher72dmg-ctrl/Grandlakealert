@@ -104,17 +104,34 @@ private const val APIFY_SOCIAL_FEED =
 private const val BACKUP_SOCIAL_FEED =
     "https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml"
 
-private fun fetchSocialPosts(): List<SocialPost> {
-    val feedUrls = listOf(APIFY_SOCIAL_FEED, BACKUP_SOCIAL_FEED)
-    for (feedUrl in feedUrls) {
+private data class SocialFeedResult(
+    val posts: List<SocialPost>,
+    val status: String
+)
+
+private fun fetchSocialPosts(): SocialFeedResult {
+    val sources = listOf(
+        "Apify" to APIFY_SOCIAL_FEED,
+        "RSS.app" to BACKUP_SOCIAL_FEED
+    )
+    val problems = mutableListOf<String>()
+    for ((name, feedUrl) in sources) {
         try {
             val posts = fetchSocialPostsFromFeed(feedUrl)
-            if (posts.isNotEmpty()) return posts
-        } catch (_: Exception) {
-            // Try the next feed source without interrupting the dashboard.
+            if (posts.isNotEmpty()) {
+                return SocialFeedResult(posts, "$name: ${posts.size} posts loaded")
+            }
+            problems.add("$name returned a feed with no readable posts")
+        } catch (e: Exception) {
+            val detail = e.message?.substringBefore("\\n")?.take(90)
+                ?.ifBlank { e.javaClass.simpleName } ?: e.javaClass.simpleName
+            problems.add("$name error: $detail")
         }
     }
-    return emptyList()
+    return SocialFeedResult(
+        emptyList(),
+        problems.joinToString(" • ").take(220)
+    )
 }
 
 private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
@@ -738,13 +755,9 @@ fun GrandLakeAlertApp() {
     LaunchedEffect(Unit) {
         while (true) {
             try {
-                val loadedPosts = withContext(Dispatchers.IO) { fetchSocialPosts() }
-                socialPosts = loadedPosts
-                socialFeedStatus = if (loadedPosts.isEmpty()) {
-                    "No recent posts available"
-                } else {
-                    "${loadedPosts.size} community posts loaded"
-                }
+                val feedResult = withContext(Dispatchers.IO) { fetchSocialPosts() }
+                socialPosts = feedResult.posts
+                socialFeedStatus = feedResult.status
             } catch (_: Exception) {
                 if (socialPosts.isEmpty()) {
                     socialFeedStatus = "Feed unavailable • tap OPEN for Facebook"
