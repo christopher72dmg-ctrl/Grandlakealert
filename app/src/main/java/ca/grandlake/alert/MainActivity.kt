@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.WebView
+import android.webkit.WebViewClient
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -67,6 +69,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -98,173 +101,6 @@ data class SocialPost(
     val link: String,
     val published: String
 )
-
-private const val APIFY_SOCIAL_FEED =
-    "https://api.apify.com/v2/datasets/l66gFAFi3ktYdNKOg/items?format=rss&clean=true&desc=true&limit=10"
-private const val BACKUP_SOCIAL_FEED =
-    "https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml"
-
-private data class SocialFeedResult(
-    val posts: List<SocialPost>,
-    val status: String
-)
-
-private fun fetchSocialPosts(): SocialFeedResult {
-    val sources = listOf(
-        "Apify" to APIFY_SOCIAL_FEED,
-        "RSS.app" to BACKUP_SOCIAL_FEED
-    )
-    val problems = mutableListOf<String>()
-    for ((name, feedUrl) in sources) {
-        try {
-            val posts = fetchSocialPostsFromFeed(feedUrl)
-            if (posts.isNotEmpty()) {
-                return SocialFeedResult(posts, "$name: ${posts.size} posts loaded")
-            }
-            problems.add("$name returned a feed with no readable posts")
-        } catch (e: Exception) {
-            val detail = e.message?.substringBefore('\n')?.replace(Regex("\\s+"), " ")
-                ?.take(140)?.ifBlank { e.javaClass.simpleName } ?: e.javaClass.simpleName
-            problems.add("$name error: $detail")
-        }
-    }
-    return SocialFeedResult(
-        emptyList(),
-        problems.joinToString(" • ").take(220)
-    )
-}
-
-private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
-    val connection = (URL(feedUrl).openConnection() as java.net.HttpURLConnection).apply {
-        connectTimeout = 15000
-        readTimeout = 20000
-        instanceFollowRedirects = true
-        requestMethod = "GET"
-        setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GrandLakeAlert/1.0")
-        setRequestProperty(
-            "Accept",
-            "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
-        )
-    }
-    val responseCode = connection.responseCode
-    if (responseCode !in 200..299) {
-        val responseBody = connection.errorStream?.bufferedReader()?.use { it.readText() }
-            ?.replace(Regex("\\s+"), " ")?.take(140).orEmpty()
-        connection.disconnect()
-        throw java.io.IOException(
-            ("HTTP " + responseCode + " " + connection.responseMessage + ": " + responseBody).trim()
-        )
-    }
-    val input = connection.inputStream
-    try {
-        val parser = XmlPullParserFactory.newInstance().newPullParser()
-        parser.setInput(input, "UTF-8")
-
-        val posts = mutableListOf<SocialPost>()
-        var inItem = false
-        var currentTag = ""
-        var title = StringBuilder()
-        var description = StringBuilder()
-        var link = ""
-        var fallbackLink = ""
-        var published = StringBuilder()
-        var event = parser.eventType
-
-        while (event != XmlPullParser.END_DOCUMENT && posts.size < 20) {
-            when (event) {
-                XmlPullParser.START_TAG -> {
-                    val tag = parser.name.lowercase(Locale.ROOT).substringAfter(':')
-                    if (tag == "item" || tag == "entry") {
-                        inItem = true
-                        currentTag = ""
-                        title = StringBuilder()
-                        description = StringBuilder()
-                        link = ""
-                        fallbackLink = ""
-                        published = StringBuilder()
-                    } else if (inItem) {
-                        currentTag = tag
-                        when (tag) {
-                            "link" -> {
-                                val href = parser.getAttributeValue(null, "href")
-                                    ?: (0 until parser.attributeCount)
-                                        .firstNotNullOfOrNull { index ->
-                                            if (parser.getAttributeName(index).equals("href", true))
-                                                parser.getAttributeValue(index) else null
-                                        }
-                                val rel = parser.getAttributeValue(null, "rel") ?: "alternate"
-                                if (!href.isNullOrBlank() &&
-                                    (link.isBlank() || rel.equals("alternate", true))) {
-                                    link = href
-                                }
-                            }
-                            "guid", "id", "url" -> {
-                                // Some feeds use a URL in guid/id instead of a link element.
-                            }
-                        }
-                    }
-                }
-
-                XmlPullParser.TEXT, XmlPullParser.CDSECT, XmlPullParser.ENTITY_REF -> {
-                    if (inItem) {
-                        val value = parser.text ?: ""
-                        when (currentTag) {
-                            "title" -> title.append(value)
-                            "description", "encoded", "content", "summary",
-                            "text", "attachedstorytext" -> description.append(value)
-                            "link" -> if (link.isBlank()) link = value
-                            "url" -> fallbackLink = value
-                            "guid", "id" -> if (fallbackLink.isBlank()) fallbackLink = value
-                            "pubdate", "date", "published", "updated", "issued", "time" -> published.append(value)
-                        }
-                    }
-                }
-
-                XmlPullParser.END_TAG -> {
-                    val tag = parser.name.lowercase(Locale.ROOT).substringAfter(':')
-                    if (tag == "item" || tag == "entry") {
-                        inItem = false
-                        val cleanTitle = title.toString().trim()
-                        val rawBody = description.toString().ifBlank { cleanTitle }
-                        val cleanBody = android.text.Html.fromHtml(
-                            rawBody
-                                .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
-                                .replace(Regex("(?is)<style[^>]*>.*?</style>"), " "),
-                            android.text.Html.FROM_HTML_MODE_LEGACY
-                        ).toString().replace(Regex("\\s+"), " ").trim()
-
-                        val candidateLink = link.trim().ifBlank { fallbackLink.trim() }
-                        val postLink = if (candidateLink.startsWith("https://") ||
-                            candidateLink.startsWith("http://")) {
-                            candidateLink
-                        } else {
-                            "https://www.facebook.com/groups/571497902912015/"
-                        }
-
-                        if (cleanBody.isNotBlank() || cleanTitle.isNotBlank()) {
-                            posts.add(
-                                SocialPost(
-                                    title = cleanTitle.ifBlank { "Community post" },
-                                    body = (cleanBody.ifBlank { cleanTitle }).take(500),
-                                    link = postLink,
-                                    published = published.toString().trim()
-                                )
-                            )
-                        }
-                        currentTag = ""
-                    } else if (inItem && tag == currentTag) {
-                        currentTag = ""
-                    }
-                }
-            }
-            event = parser.next()
-        }
-        return posts.distinctBy { it.link + it.body }.take(8)
-    } finally {
-        input.close()
-        connection.disconnect()
-    }
-}
 
 class MainActivity : ComponentActivity() {
 
@@ -316,7 +152,8 @@ fun GrandLakeAlertApp() {
     }
 
     var socialPosts by remember { mutableStateOf<List<SocialPost>>(emptyList()) }
-    var socialFeedStatus by remember { mutableStateOf("Loading community posts…") }
+    var socialFeedStatus by remember { mutableStateOf("Community posts • Tap OPEN to view") }
+    var showSocialMedia by remember { mutableStateOf(false) }
 
     var showTiles by remember {
         mutableStateOf(false)
@@ -766,20 +603,6 @@ fun GrandLakeAlertApp() {
         showTiles = true
     }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            try {
-                val feedResult = withContext(Dispatchers.IO) { fetchSocialPosts() }
-                socialPosts = feedResult.posts
-                socialFeedStatus = feedResult.status
-            } catch (_: Exception) {
-                if (socialPosts.isEmpty()) {
-                    socialFeedStatus = "Feed unavailable • tap OPEN for Facebook"
-                }
-            }
-            kotlinx.coroutines.delay(15 * 60 * 1000L)
-        }
-    }
 
     val tiles = listOf(
 
@@ -859,7 +682,7 @@ fun GrandLakeAlertApp() {
             title = "Social Media",
             icon = "👥",
             subtitle = socialFeedStatus,
-            url = "https://www.facebook.com/groups/571497902912015/",
+            url = "https://widgets.sociablekit.com/facebook-group-posts/iframe/25728041",
             accent = Color(0xFF64B5F6),
             socialMedia = true
         )
@@ -1005,9 +828,7 @@ fun GrandLakeAlertApp() {
                                     tile = tile,
                                     context = context,
                                     onChat = { if (tile.chat) showChat = true },
-                                    onSocialMedia = { if (tile.socialMedia && tile.url != null) {
-                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tile.url))) } catch (_: Exception) {}
-                                    } },
+                                    onSocialMedia = { if (tile.socialMedia) showSocialMedia = true },
                                     onWeather = { if (tile.weather) showWeather = !showWeather },
                                     weatherExpanded = showWeather,
                                     socialPosts = socialPosts
@@ -1019,11 +840,49 @@ fun GrandLakeAlertApp() {
             }
         }
         OfflineChatScreen(visible = showChat, onBack = { showChat = false })
+        SocialMediaScreen(visible = showSocialMedia, onBack = { showSocialMedia = false })
         }
     }
 }
 }
 
+
+
+@Composable
+fun SocialMediaScreen(visible: Boolean, onBack: () -> Unit) {
+    if (!visible) return
+
+    Scaffold(
+        containerColor = Color(0xFF101214),
+        topBar = {
+            TopAppBar(
+                title = { Text("Community Posts", color = Color.White) },
+                navigationIcon = {
+                    TextButton(onClick = onBack) {
+                        Text("BACK", color = Color(0xFF80CBC4))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF181B1F),
+                    titleContentColor = Color.White
+                )
+            )
+        }
+    ) { innerPadding ->
+        AndroidView(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            factory = { viewContext ->
+                WebView(viewContext).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.loadsImagesAutomatically = true
+                    webViewClient = WebViewClient()
+                    loadUrl("https://widgets.sociablekit.com/facebook-group-posts/iframe/25728041")
+                }
+            }
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
