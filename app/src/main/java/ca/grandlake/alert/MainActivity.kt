@@ -100,7 +100,7 @@ data class SocialPost(
 )
 
 private const val APIFY_SOCIAL_FEED =
-    "https://api.apify.com/v2/datasets/l66gFAFi3ktYdNKOg/items?signature=MC4xNzk1MDQ0Nzg3MDYxLjFJMEFlR0lHMHY2MUJFZWxxc0FjTQ&format=rss&clean=true"
+    "https://api.apify.com/v2/acts/k2EGGSGLdqsrWoS6q/runs/last/dataset/items?status=SUCCEEDED&format=rss&clean=true"
 private const val BACKUP_SOCIAL_FEED =
     "https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml"
 
