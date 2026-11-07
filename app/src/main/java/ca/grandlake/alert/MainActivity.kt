@@ -102,6 +102,13 @@ data class SocialPost(
     val published: String
 )
 
+data class SocialPost(
+    val title: String,
+    val body: String,
+    val link: String,
+    val published: String
+)
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
