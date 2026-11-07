@@ -123,8 +123,8 @@ private fun fetchSocialPosts(): SocialFeedResult {
             }
             problems.add("$name returned a feed with no readable posts")
         } catch (e: Exception) {
-            val detail = e.message?.substringBefore("\\n")?.take(90)
-                ?.ifBlank { e.javaClass.simpleName } ?: e.javaClass.simpleName
+            val detail = e.message?.substringBefore('\n')?.replace(Regex("\\s+"), " ")
+                ?.take(140)?.ifBlank { e.javaClass.simpleName } ?: e.javaClass.simpleName
             problems.add("$name error: $detail")
         }
     }
@@ -135,16 +135,27 @@ private fun fetchSocialPosts(): SocialFeedResult {
 }
 
 private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
-    val connection = URL(feedUrl).openConnection().apply {
+    val connection = (URL(feedUrl).openConnection() as java.net.HttpURLConnection).apply {
         connectTimeout = 15000
         readTimeout = 20000
+        instanceFollowRedirects = true
+        requestMethod = "GET"
         setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GrandLakeAlert/1.0")
         setRequestProperty(
             "Accept",
             "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
         )
     }
-    val input = connection.getInputStream()
+    val responseCode = connection.responseCode
+    if (responseCode !in 200..299) {
+        val responseBody = connection.errorStream?.bufferedReader()?.use { it.readText() }
+            ?.replace(Regex("\\s+"), " ")?.take(140).orEmpty()
+        connection.disconnect()
+        throw java.io.IOException(
+            ("HTTP " + responseCode + " " + connection.responseMessage + ": " + responseBody).trim()
+        )
+    }
+    val input = connection.inputStream
     try {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
         parser.setInput(input, "UTF-8")
@@ -251,6 +262,7 @@ private fun fetchSocialPostsFromFeed(feedUrl: String): List<SocialPost> {
         return posts.distinctBy { it.link + it.body }.take(8)
     } finally {
         input.close()
+        connection.disconnect()
     }
 }
 
