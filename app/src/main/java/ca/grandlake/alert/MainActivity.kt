@@ -102,13 +102,6 @@ data class SocialPost(
     val published: String
 )
 
-data class SocialPost(
-    val title: String,
-    val body: String,
-    val link: String,
-    val published: String
-)
-
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -855,6 +848,7 @@ fun GrandLakeAlertApp() {
 
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SocialMediaScreen(visible: Boolean, onBack: () -> Unit) {
     if (!visible) return
