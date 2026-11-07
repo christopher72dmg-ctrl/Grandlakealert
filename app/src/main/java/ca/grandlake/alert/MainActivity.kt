@@ -5,8 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebView
-import android.webkit.WebViewClient
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -69,7 +67,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -152,8 +149,24 @@ fun GrandLakeAlertApp() {
     }
 
     var socialPosts by remember { mutableStateOf<List<SocialPost>>(emptyList()) }
-    var socialFeedStatus by remember { mutableStateOf("Community posts • Tap OPEN to view") }
-    var showSocialMedia by remember { mutableStateOf(false) }
+    var socialFeedStatus by remember { mutableStateOf("Loading community posts…") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val posts = withContext(Dispatchers.IO) { fetchSocialPosts() }
+                if (posts.isNotEmpty()) {
+                    socialPosts = posts
+                    socialFeedStatus = "Latest community posts • ${posts.size} updates"
+                } else if (socialPosts.isEmpty()) {
+                    socialFeedStatus = "No readable community posts yet"
+                }
+            } catch (_: Exception) {
+                if (socialPosts.isEmpty()) socialFeedStatus = "Community feed temporarily unavailable"
+            }
+            kotlinx.coroutines.delay(15 * 60 * 1000L)
+        }
+    }
 
     var showTiles by remember {
         mutableStateOf(false)
@@ -682,7 +695,7 @@ fun GrandLakeAlertApp() {
             title = "Social Media",
             icon = "👥",
             subtitle = socialFeedStatus,
-            url = "https://widgets.sociablekit.com/facebook-group-posts/iframe/25728041",
+            url = "https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml",
             accent = Color(0xFF64B5F6),
             socialMedia = true
         )
@@ -828,7 +841,7 @@ fun GrandLakeAlertApp() {
                                     tile = tile,
                                     context = context,
                                     onChat = { if (tile.chat) showChat = true },
-                                    onSocialMedia = { if (tile.socialMedia) showSocialMedia = true },
+                                    onSocialMedia = {},
                                     onWeather = { if (tile.weather) showWeather = !showWeather },
                                     weatherExpanded = showWeather,
                                     socialPosts = socialPosts
@@ -840,7 +853,6 @@ fun GrandLakeAlertApp() {
             }
         }
         OfflineChatScreen(visible = showChat, onBack = { showChat = false })
-        SocialMediaScreen(visible = showSocialMedia, onBack = { showSocialMedia = false })
         }
     }
 }
@@ -848,7 +860,6 @@ fun GrandLakeAlertApp() {
 
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SocialMediaScreen(visible: Boolean, onBack: () -> Unit) {
     if (!visible) return
@@ -1446,6 +1457,66 @@ fun AlertTile(
     }
 }
 
+
+private fun fetchSocialPosts(): List<SocialPost> {
+    val connection = URL("https://rss.app/feeds/SX2o6GyVXTNHPsqK.xml").openConnection().apply {
+        connectTimeout = 15000
+        readTimeout = 20000
+        setRequestProperty("User-Agent", "GrandLakeAlert/1.0")
+        setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml")
+    }
+    val parser = XmlPullParserFactory.newInstance().newPullParser()
+    connection.getInputStream().use { input ->
+        parser.setInput(input, "UTF-8")
+        val posts = mutableListOf<SocialPost>()
+        var insideItem = false
+        var title = ""
+        var body = ""
+        var link = ""
+        var published = ""
+        var event = parser.eventType
+        while (event != XmlPullParser.END_DOCUMENT) {
+            when (event) {
+                XmlPullParser.START_TAG -> {
+                    when (parser.name.substringAfter(':').lowercase()) {
+                        "item" -> {
+                            insideItem = true
+                            title = ""; body = ""; link = ""; published = ""
+                        }
+                        "title" -> if (insideItem) title = parser.nextText().trim()
+                        "description", "encoded", "content" -> if (insideItem && body.isBlank()) {
+                            body = parser.nextText().trim()
+                        }
+                        "link" -> if (insideItem) link = parser.nextText().trim()
+                        "pubdate", "published", "updated" -> if (insideItem) published = parser.nextText().trim()
+                    }
+                }
+                XmlPullParser.END_TAG -> if (parser.name.substringAfter(':').equals("item", true)) {
+                    if (title.isNotBlank() || body.isNotBlank()) {
+                        val cleanBody = (body.ifBlank { title })
+                            .replace(Regex("<[^>]*>"), " ")
+                            .replace("&nbsp;", " ")
+                            .replace("&amp;", "&")
+                            .replace("&quot;", "\"")
+                            .replace("&#39;", "'")
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+                        posts.add(SocialPost(
+                            title = title.ifBlank { "Facebook community post" },
+                            body = cleanBody.ifBlank { title },
+                            link = link,
+                            published = published
+                        ))
+                    }
+                    insideItem = false
+                    if (posts.size >= 20) break
+                }
+            }
+            event = parser.next()
+        }
+        return posts
+    }
+}
 
 @Composable
 fun SocialMediaTicker(
