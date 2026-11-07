@@ -861,43 +861,6 @@ fun GrandLakeAlertApp() {
 
 
 @Composable
-fun SocialMediaScreen(visible: Boolean, onBack: () -> Unit) {
-    if (!visible) return
-
-    Scaffold(
-        containerColor = Color(0xFF101214),
-        topBar = {
-            TopAppBar(
-                title = { Text("Community Posts", color = Color.White) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text("BACK", color = Color(0xFF80CBC4))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF181B1F),
-                    titleContentColor = Color.White
-                )
-            )
-        }
-    ) { innerPadding ->
-        AndroidView(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            factory = { viewContext ->
-                WebView(viewContext).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.loadsImagesAutomatically = true
-                    webViewClient = WebViewClient()
-                    loadUrl("https://widgets.sociablekit.com/facebook-group-posts/iframe/25728041")
-                }
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun WeatherDashboardScreen(onBack: () -> Unit) {
     var now by remember { mutableStateOf("Loading current conditions…") }
     var tomorrow by remember { mutableStateOf("Loading tomorrow’s forecast…") }
