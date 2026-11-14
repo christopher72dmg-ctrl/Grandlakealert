@@ -7,7 +7,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -132,7 +131,7 @@ fun InternetOutageTicker() {
     LaunchedEffect(items) {
         currentIndex = 0
         while (items.size > 1) {
-            kotlinx.coroutines.delay(3200L)
+            kotlinx.coroutines.delay(8000L)
             currentIndex = (currentIndex + 1) % items.size
         }
     }
@@ -197,9 +196,7 @@ fun InternetOutageTicker() {
         ) { headline ->
             Text(
                 text = headline,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .basicMarquee(iterations = Int.MAX_VALUE),
+                modifier = Modifier.fillMaxWidth(),
                 color = Color.LightGray,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 2
