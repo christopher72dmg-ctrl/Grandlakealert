@@ -661,8 +661,8 @@ fun GrandLakeAlertApp() {
         Tile(
             title = "Internet Outages",
             icon = "🌐",
-            subtitle = "Regional internet disruptions • Cloudflare Radar",
-            url = "https://radar.cloudflare.com/",
+            subtitle = "Worldwide outage alerts • IODA public data",
+            url = "https://ioda.inetintel.cc.gatech.edu/dashboard/",
             accent = Color(0xFF42A5F5)
         ),
         Tile(
@@ -723,7 +723,7 @@ fun GrandLakeAlertApp() {
                 },
                 text = {
                     Text(
-                        "Grand Lake Alert gathers local information from public sources. Tap SOURCE on any tile to open its official information page. Weather and forecast data come from public weather services; solar/radio activity uses NOAA data. School alerts, fuel prices, NB 511 traffic and road conditions, Cloudflare Radar internet disruptions, RCMP news, wildfire information, NB Power outages, and aircraft reports link to their respective public sources.\n\nInformation may be delayed or unavailable. Always check the official source for urgent or emergency decisions.",
+                        "Grand Lake Alert gathers local information from public sources. Tap SOURCE on any tile to open its official information page. Weather and forecast data come from public weather services; solar/radio activity uses NOAA data. School alerts, fuel prices, NB 511 traffic and road conditions, IODA public internet outage alerts, RCMP news, wildfire information, NB Power outages, and aircraft reports link to their respective public sources.\n\nInformation may be delayed or unavailable. Always check the official source for urgent or emergency decisions.",
                         color = Color.LightGray
                     )
                 },
@@ -1370,6 +1370,8 @@ fun AlertTile(
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopStart) {
                 if (tile.socialMedia) {
                     SocialMediaTicker(posts = socialPosts, fallback = tile.subtitle, context = context)
+                } else if (tile.title == "Internet Outages") {
+                    InternetOutageTicker()
                 } else if (tile.title == "Aircraft Overhead" || tile.title == "Power Outages") {
                     AircraftTicker(text = tile.subtitle, compact = true)
                 } else {
