@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -18,7 +19,9 @@
 
     <application
         android:theme="@style/AppTheme"
-        android:label="Grand Lake Alert">
+        android:label="Grand Lake Alert"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher">
 
         <activity
             android:name=".MainActivity"
