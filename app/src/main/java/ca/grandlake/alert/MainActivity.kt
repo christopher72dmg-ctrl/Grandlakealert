@@ -636,14 +636,6 @@ fun GrandLakeAlertApp() {
         ),
 
         Tile(
-            title = "Hwy 10",
-            icon = "🛣️",
-            subtitle = "Current Hwy 10 road conditions",
-            url = "https://511.gnb.ca/roadconditions?start=0&length=25&order%5Bi%5D=1&order%5Bdir%5D=asc&search=10",
-            accent = Color(0xFFFF9800)
-        ),
-
-        Tile(
             title = "Police",
             icon = "🚓",
             subtitle = policeNews,
@@ -660,11 +652,18 @@ fun GrandLakeAlertApp() {
         ),
 
         Tile(
-            title = "Traffic & Accidents",
+            title = "Traffic & Road Conditions",
             icon = "🚗",
-            subtitle = "Live NB traffic events, accidents, closures & construction",
-            url = "https://511.gnb.ca/list/events/traffic",
+            subtitle = "NB 511 • Road conditions, accidents, closures, detours & construction",
+            url = "https://511.gnb.ca/",
             accent = Color(0xFFAB47BC)
+        ),
+        Tile(
+            title = "Internet Outages",
+            icon = "🌐",
+            subtitle = "Regional internet disruptions • Cloudflare Radar",
+            url = "https://radar.cloudflare.com/",
+            accent = Color(0xFF42A5F5)
         ),
         Tile(
             title = "Power Outages",
@@ -724,7 +723,7 @@ fun GrandLakeAlertApp() {
                 },
                 text = {
                     Text(
-                        "Grand Lake Alert gathers local information from public sources. Tap SOURCE on any tile to open its official information page. Weather and forecast data come from public weather services; solar/radio activity uses NOAA data. School alerts, fuel prices, road conditions, RCMP news, wildfire information, NB Power outages, and aircraft reports link to their respective public sources.\n\nInformation may be delayed or unavailable. Always check the official source for urgent or emergency decisions.",
+                        "Grand Lake Alert gathers local information from public sources. Tap SOURCE on any tile to open its official information page. Weather and forecast data come from public weather services; solar/radio activity uses NOAA data. School alerts, fuel prices, NB 511 traffic and road conditions, Cloudflare Radar internet disruptions, RCMP news, wildfire information, NB Power outages, and aircraft reports link to their respective public sources.\n\nInformation may be delayed or unavailable. Always check the official source for urgent or emergency decisions.",
                         color = Color.LightGray
                     )
                 },
