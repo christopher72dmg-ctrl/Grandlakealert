@@ -19,9 +19,7 @@
 
     <application
         android:theme="@style/AppTheme"
-        android:label="Grand Lake Alert"
-        android:icon="@drawable/ic_launcher"
-        android:roundIcon="@drawable/ic_launcher">
+        android:label="Grand Lake Alert">
 
         <activity
             android:name=".MainActivity"
