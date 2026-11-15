@@ -134,7 +134,7 @@ private fun fetchIodaTicker(): IodaTickerSnapshot {
 fun InternetOutageTicker() {
     val context = LocalContext.current
     var snapshot by remember { mutableStateOf<IodaTickerSnapshot?>(null) }
-    var error by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentIndex by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
@@ -144,10 +144,13 @@ fun InternetOutageTicker() {
                     fetchIodaTicker()
                 }
                 snapshot = fresh
-                error = false
+                errorMessage = null
                 currentIndex = 0
-            } catch (_: Exception) {
-                if (snapshot == null) error = true
+            } catch (e: Exception) {
+                if (snapshot == null) {
+                    val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                    errorMessage = detail.take(72)
+                }
             }
             kotlinx.coroutines.delay(10 * 60 * 1000L)
         }
@@ -191,12 +194,12 @@ fun InternetOutageTicker() {
         ) {
             Text(
                 text = when {
-                    error -> "IODA DATA UNAVAILABLE"
+                    errorMessage != null -> "IODA FEED ERROR"
                     snapshot == null -> "CONNECTING TO IODA…"
                     items.isEmpty() -> "NO SIGNIFICANT ALERTS"
                     else -> "${items.size} NETWORK ALERTS • LAST 24H"
                 },
-                color = if (error) Color(0xFFFFB74D) else Color(0xFF80CBC4),
+                color = if (errorMessage != null) Color(0xFFFFB74D) else Color(0xFF80CBC4),
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1
             )
@@ -210,7 +213,7 @@ fun InternetOutageTicker() {
         Spacer(modifier = Modifier.height(5.dp))
         AnimatedContent(
             targetState = item?.headline ?: when {
-                error -> "Public outage feed temporarily unavailable"
+                errorMessage != null -> "Feed error: $errorMessage"
                 snapshot == null -> "Loading worldwide network reports…"
                 else -> "No significant outage alerts in the last 24 hours"
             },
