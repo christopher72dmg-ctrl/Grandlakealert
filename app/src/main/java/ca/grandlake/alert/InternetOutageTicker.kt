@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,17 +55,38 @@ private fun fetchIodaTicker(): IodaTickerSnapshot {
         "https://api.ioda.inetintel.cc.gatech.edu/v2/outages/alerts" +
             "?from=$from&until=$now&limit=100"
     )
-    val connection = endpoint.openConnection().apply {
-        connectTimeout = 12000
-        readTimeout = 15000
+    val connection = (endpoint.openConnection() as HttpsURLConnection).apply {
+        connectTimeout = 20000
+        readTimeout = 25000
+        useCaches = false
+        instanceFollowRedirects = true
         setRequestProperty("User-Agent", "GrandLakeAlert/1.0 (public IODA outage monitor)")
         setRequestProperty("Accept", "application/json")
+        setRequestProperty("Accept-Encoding", "identity")
+
+        // Older Android TV firmware can negotiate HTTPS differently from newer phones.
+        // IODA's API supports TLS 1.2; explicitly use it for broad device compatibility.
+        val tls12 = SSLContext.getInstance("TLSv1.2")
+        tls12.init(null, null, null)
+        sslSocketFactory = tls12.socketFactory
     }
-    val raw = connection.getInputStream().bufferedReader().use { it.readText() }
-    val root = JSONObject(raw)
-    val data = root.optJSONArray("data")
-        ?: root.optJSONArray("alerts")
-        ?: JSONArray()
+    try {
+        val status = connection.responseCode
+        if (status !in 200..299) {
+            throw IllegalStateException("IODA HTTP $status")
+        }
+        val raw = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val trimmed = raw.trim()
+        val data = when {
+            trimmed.startsWith("[") -> JSONArray(trimmed)
+            trimmed.startsWith("{") -> {
+                val root = JSONObject(trimmed)
+                root.optJSONArray("data")
+                    ?: root.optJSONArray("alerts")
+                    ?: JSONArray()
+            }
+            else -> JSONArray()
+        }
     val newestByEntity = linkedMapOf<String, IodaTickerItem>()
 
     for (i in 0 until data.length()) {
@@ -101,7 +124,10 @@ private fun fetchIodaTicker(): IodaTickerSnapshot {
         .sortedByDescending { it.time }
         .take(12)
 
-    return IodaTickerSnapshot(items, System.currentTimeMillis())
+        return IodaTickerSnapshot(items, System.currentTimeMillis())
+    } finally {
+        connection.disconnect()
+    }
 }
 
 @Composable
