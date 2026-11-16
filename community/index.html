@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101820">
+<title>Grand Lake Community Information</title>
+<style>
+:root{color-scheme:dark;--bg:#101820;--panel:#1b2730;--line:#344550;--ink:#f2f5f6;--muted:#b8c5cc;--accent:#80cbc4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px 16px 18px;background:#17232c;border-bottom:1px solid var(--line)}
+.wrap{max-width:900px;margin:auto}h1{font-size:1.45rem;margin:0 0 5px}header p{margin:0;color:var(--muted);font-size:.95rem}
+main{padding:16px;max-width:900px;margin:auto}.note{padding:12px 14px;border:1px solid var(--line);border-radius:12px;color:var(--muted);margin-bottom:14px;background:#15212a}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}
+article{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;min-height:132px}
+h2{font-size:1.05rem;margin:0 0 8px;color:var(--accent)}article p{margin:0 0 12px;color:var(--muted);font-size:.92rem}
+a{color:var(--accent);font-weight:600;text-decoration:none}a:hover{text-decoration:underline}
+footer{padding:20px 16px 30px;text-align:center;color:var(--muted);font-size:.82rem}
+.small{font-size:.78rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>📍 Grand Lake & Around These Parts</h1><p>Local information for the lakes, roads and communities around Grand Lake, New Brunswick.</p></div></header>
+<main>
+<div class="note"><strong>One community, two screens.</strong><br>The goal is to show the same information here and in the Grand Lake Alert app. This first page is the web front end; the shared live-data feed is the next connection.</div>
+<section class="grid" aria-label="Community information">
+<article><h2>🌦 Weather</h2><p>Current conditions, forecast and weather alerts for the Grand Lake area.</p><a href="https://weather.gc.ca/" target="_blank" rel="noopener">Environment Canada weather</a></article>
+<article><h2>⚡ Power outages</h2><p>NB Power outage information, including the Central / Queens County area.</p><a href="https://www.nbpower.com/Open/Outages.aspx" target="_blank" rel="noopener">NB Power outage map</a></article>
+<article><h2>🔥 Fire & burn conditions</h2><p>Wildfire information and current public burn restrictions.</p><a href="https://www2.gnb.ca/content/gnb/en/departments/erd/forestry-conservation/content/fire_management.html" target="_blank" rel="noopener">NB fire information</a></article>
+<article><h2>🚧 Roads & travel</h2><p>Road conditions, incidents and travel information for New Brunswick.</p><a href="https://511.gnb.ca/" target="_blank" rel="noopener">NB 511</a></article>
+<article><h2>🚌 Schools & buses</h2><p>School notices and bus information for the local school district.</p><a href="https://asdw.nbed.ca/news/alerts-dashboard/" target="_blank" rel="noopener">ASD-W alerts</a></article>
+<article><h2>⛽ Fuel prices</h2><p>Provincial regulated fuel-price information.</p><a href="https://nbeub.ca/current-petroleum-prices-2" target="_blank" rel="noopener">NB petroleum prices</a></article>
+<article><h2>🚓 Community & public safety</h2><p>Public updates and notices from New Brunswick RCMP.</p><a href="https://rcmp.ca/en/nb/news" target="_blank" rel="noopener">NB RCMP news</a></article>
+<article><h2>🌊 Tides</h2><p>Coastal tide predictions for travel planning.</p><a href="https://tides.gc.ca/" target="_blank" rel="noopener">Canadian tide tables</a></article>
+</section>
+</main>
+<footer>Public information links. Always confirm urgent conditions with the official source.<br><span class="small">Community reports, timestamps and shared live updates will be added as the common feed is connected.</span></footer>
+</body></html>
