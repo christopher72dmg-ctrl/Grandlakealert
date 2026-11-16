@@ -8,31 +8,66 @@
 <style>
 :root{color-scheme:dark;--bg:#101820;--panel:#1b2730;--line:#344550;--ink:#f2f5f6;--muted:#b8c5cc;--accent:#80cbc4}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
-header{padding:22px 16px 18px;background:#17232c;border-bottom:1px solid var(--line)}
-.wrap{max-width:900px;margin:auto}h1{font-size:1.45rem;margin:0 0 5px}header p{margin:0;color:var(--muted);font-size:.95rem}
-main{padding:16px;max-width:900px;margin:auto}.note{padding:12px 14px;border:1px solid var(--line);border-radius:12px;color:var(--muted);margin-bottom:14px;background:#15212a}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}
-article{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;min-height:132px}
-h2{font-size:1.05rem;margin:0 0 8px;color:var(--accent)}article p{margin:0 0 12px;color:var(--muted);font-size:.92rem}
-a{color:var(--accent);font-weight:600;text-decoration:none}a:hover{text-decoration:underline}
-footer{padding:20px 16px 30px;text-align:center;color:var(--muted);font-size:.82rem}
-.small{font-size:.78rem;color:var(--muted)}
+header{padding:20px 16px 16px;background:#17232c;border-bottom:1px solid var(--line)}.wrap{max-width:960px;margin:auto}
+h1{font-size:1.4rem;margin:0 0 5px}header p{margin:0;color:var(--muted);font-size:.92rem}
+main{padding:14px;max-width:960px;margin:auto}.topline{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;color:var(--muted);font-size:.85rem}
+button{background:#263944;border:1px solid #49616d;color:var(--ink);border-radius:9px;padding:8px 12px;font:inherit}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,255px),1fr));gap:11px}
+article{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px;min-height:118px}
+h2{font-size:1.02rem;margin:0 0 7px;color:var(--accent)}article p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
+a{color:var(--accent);font-weight:650;text-decoration:none}a:hover{text-decoration:underline}
+.weather{grid-column:1/-1;min-height:0}.weather-main{display:flex;gap:22px;align-items:center;flex-wrap:wrap}.temp{font-size:2.25rem;font-weight:700}.weather-details{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:.88rem}
+.hourly{display:flex;gap:9px;overflow-x:auto;padding:10px 0 2px}.hour{min-width:78px;background:#15212a;border-radius:9px;padding:8px;text-align:center;font-size:.82rem}.hour strong{display:block;font-size:1rem;margin:4px 0}
+.small{font-size:.78rem;color:var(--muted)}footer{padding:18px 16px 28px;text-align:center;color:var(--muted);font-size:.8rem}
+.status{color:var(--muted);font-size:.85rem}.updated{margin-top:8px}
 </style>
 </head>
 <body>
 <header><div class="wrap"><h1>📍 Grand Lake & Around These Parts</h1><p>Local information for the lakes, roads and communities around Grand Lake, New Brunswick.</p></div></header>
 <main>
-<div class="note"><strong>One community, two screens.</strong><br>The goal is to show the same information here and in the Grand Lake Alert app. This first page is the web front end; the shared live-data feed is the next connection.</div>
+<div class="topline"><span id="clock">Loading local time…</span><button id="refresh" type="button">↻ Refresh weather</button></div>
 <section class="grid" aria-label="Community information">
-<article><h2>🌦 Weather</h2><p>Current conditions, forecast and weather alerts for the Grand Lake area.</p><a href="https://weather.gc.ca/" target="_blank" rel="noopener">Environment Canada weather</a></article>
-<article><h2>⚡ Power outages</h2><p>NB Power outage information, including the Central / Queens County area.</p><a href="https://www.nbpower.com/Open/Outages.aspx" target="_blank" rel="noopener">NB Power outage map</a></article>
-<article><h2>🔥 Fire & burn conditions</h2><p>Wildfire information and current public burn restrictions.</p><a href="https://www2.gnb.ca/content/gnb/en/departments/erd/forestry-conservation/content/fire_management.html" target="_blank" rel="noopener">NB fire information</a></article>
-<article><h2>🚧 Roads & travel</h2><p>Road conditions, incidents and travel information for New Brunswick.</p><a href="https://511.gnb.ca/" target="_blank" rel="noopener">NB 511</a></article>
-<article><h2>🚌 Schools & buses</h2><p>School notices and bus information for the local school district.</p><a href="https://asdw.nbed.ca/news/alerts-dashboard/" target="_blank" rel="noopener">ASD-W alerts</a></article>
-<article><h2>⛽ Fuel prices</h2><p>Provincial regulated fuel-price information.</p><a href="https://nbeub.ca/current-petroleum-prices-2" target="_blank" rel="noopener">NB petroleum prices</a></article>
-<article><h2>🚓 Community & public safety</h2><p>Public updates and notices from New Brunswick RCMP.</p><a href="https://rcmp.ca/en/nb/news" target="_blank" rel="noopener">NB RCMP news</a></article>
-<article><h2>🌊 Tides</h2><p>Coastal tide predictions for travel planning.</p><a href="https://tides.gc.ca/" target="_blank" rel="noopener">Canadian tide tables</a></article>
+<article class="weather">
+<h2>🌦 Weather — Grand Lake area</h2>
+<div class="weather-main"><div class="temp" id="temperature">--°</div><div><div id="condition">Getting current conditions…</div><div class="small" id="range"></div></div></div>
+<div class="weather-details"><span id="feels">Feels like --°</span><span id="humidity">Humidity --%</span><span id="wind">Wind -- km/h</span></div>
+<div class="hourly" id="hourly"><span class="status">Loading upcoming hours…</span></div>
+<div class="small updated" id="weather-updated">Weather supplied by Open-Meteo. Forecasts are estimates.</div>
+</article>
+<article><h2>⚡ Power outages</h2><p>NB Power outage information, including the Central / Queens County area.</p><a href="https://www.nbpower.com/Open/Outages.aspx" target="_blank" rel="noopener">Open NB Power outage map ↗</a></article>
+<article><h2>🔥 Fire & burn conditions</h2><p>Wildfire information and current public burn restrictions.</p><a href="https://www2.gnb.ca/content/gnb/en/departments/erd/forestry-conservation/content/fire_management.html" target="_blank" rel="noopener">NB fire information ↗</a></article>
+<article><h2>🚧 Roads & travel</h2><p>Road conditions, incidents and travel information for New Brunswick.</p><a href="https://511.gnb.ca/" target="_blank" rel="noopener">NB 511 ↗</a></article>
+<article><h2>🚌 Schools & buses</h2><p>School notices and bus information for the local school district.</p><a href="https://asdw.nbed.ca/news/alerts-dashboard/" target="_blank" rel="noopener">ASD-W alerts ↗</a></article>
+<article><h2>⛽ Fuel prices</h2><p>Provincial regulated fuel-price information.</p><a href="https://nbeub.ca/current-petroleum-prices-2" target="_blank" rel="noopener">NB petroleum prices ↗</a></article>
+<article><h2>🚓 Community & public safety</h2><p>Public updates and notices from New Brunswick RCMP.</p><a href="https://rcmp.ca/en/nb/news" target="_blank" rel="noopener">NB RCMP news ↗</a></article>
+<article><h2>🌊 Tides</h2><p>Canadian tide predictions for coastal and tidal-water travel planning.</p><a href="https://tides.gc.ca/" target="_blank" rel="noopener">Canadian tide tables ↗</a></article>
+<article><h2>✈️ Aircraft & air activity</h2><p>Public aircraft tracking map. Coverage depends on aircraft transponders and receiver range.</p><a href="https://globe.adsbexchange.com/" target="_blank" rel="noopener">Open aircraft map ↗</a></article>
+<article><h2>📡 Internet outages</h2><p>Check reported internet service disruptions across the region.</p><a href="https://www.ioda.inetintel.cc.gatech.edu/" target="_blank" rel="noopener">IODA outage monitor ↗</a></article>
 </section>
 </main>
-<footer>Public information links. Always confirm urgent conditions with the official source.<br><span class="small">Community reports, timestamps and shared live updates will be added as the common feed is connected.</span></footer>
+<footer>Public information links. Always confirm urgent conditions with the official source.<br><span class="small">Community reports and shared local updates can be added later. No paid feeds or subscriptions.</span></footer>
+<script>
+const lat=46.03,lon=-65.92;
+const $=id=>document.getElementById(id);
+function tick(){ $('clock').textContent=new Date().toLocaleString('en-CA',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}
+tick();setInterval(tick,30000);
+const labels={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Freezing fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',80:'Rain showers',81:'Rain showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm / hail',99:'Thunderstorm / hail'};
+async function loadWeather(){
+ $('condition').textContent='Getting current conditions…';
+ try{
+ const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=America%2FMoncton&forecast_days=1';
+ const r=await fetch(url);if(!r.ok)throw new Error('Weather source unavailable');const d=await r.json(),c=d.current;
+ $('temperature').textContent=Math.round(c.temperature_2m)+'°C';
+ $('condition').textContent=labels[c.weather_code]||'Current conditions';
+ $('range').textContent='Today '+Math.round(d.daily.temperature_2m_min[0])+'° / '+Math.round(d.daily.temperature_2m_max[0])+'°';
+ $('feels').textContent='Feels like '+Math.round(c.apparent_temperature)+'°C';
+ $('humidity').textContent='Humidity '+c.relative_humidity_2m+'%';
+ $('wind').textContent='Wind '+Math.round(c.wind_speed_10m)+' km/h';
+ const now=new Date(c.time).getTime(),times=d.hourly.time;let start=times.findIndex(t=>new Date(t).getTime()>=now);if(start<0)start=0;
+ $('hourly').innerHTML=times.slice(start,start+8).map((t,i)=>{const n=start+i;return '<div class="hour">'+new Date(t).toLocaleTimeString('en-CA',{hour:'numeric'})+'<strong>'+Math.round(d.hourly.temperature_2m[n])+'°</strong>'+ (d.hourly.precipitation_probability[n]??0)+'% rain</div>'}).join('');
+ $('weather-updated').textContent='Updated '+new Date().toLocaleTimeString('en-CA',{hour:'numeric',minute:'2-digit'})+' · Open-Meteo · Forecasts are estimates.';
+ }catch(e){$('condition').textContent='Weather temporarily unavailable';$('hourly').innerHTML='<span class="status">Use Environment Canada for official forecasts and alerts.</span>';$('weather-updated').textContent='Could not reach the free weather feed.'}
+}
+$('refresh').addEventListener('click',loadWeather);loadWeather();
+</script>
 </body></html>
