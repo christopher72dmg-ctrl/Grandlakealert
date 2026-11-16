@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "project": "Grand Lake Community Information",
+  "purpose": "Shared data contract for the community webpage and Grand Lake Alert Android app.",
+  "updatedAt": null,
+  "areas": [
+    "Grand Lake",
+    "Queens County",
+    "Lakeville Corner",
+    "Cranberry Lake",
+    "Lake Stream"
+  ],
+  "categories": [
+    "weather",
+    "power",
+    "fire",
+    "roads",
+    "schools",
+    "fuel",
+    "public-safety",
+    "tides",
+    "community-reports"
+  ],
+  "reports": [],
+  "sources": [
+    {
+      "id": "weather",
+      "name": "Open-Meteo",
+      "url": "https://api.open-meteo.com/v1/forecast"
+    },
+    {
+      "id": "power",
+      "name": "NB Power",
+      "url": "https://www.nbpower.com/Open/Outages.aspx"
+    },
+    {
+      "id": "fire",
+      "name": "Government of New Brunswick fire information",
+      "url": "https://www2.gnb.ca/content/gnb/en/departments/erd/forestry-conservation/content/fire_management.html"
+    },
+    {
+      "id": "roads",
+      "name": "NB 511",
+      "url": "https://511.gnb.ca/"
+    },
+    {
+      "id": "schools",
+      "name": "ASD-W alerts",
+      "url": "https://asdw.nbed.ca/news/alerts-dashboard/"
+    },
+    {
+      "id": "fuel",
+      "name": "NB Energy and Utilities Board",
+      "url": "https://nbeub.ca/current-petroleum-prices-2"
+    },
+    {
+      "id": "public-safety",
+      "name": "RCMP New Brunswick",
+      "url": "https://rcmp.ca/en/nb/news"
+    },
+    {
+      "id": "tides",
+      "name": "Canadian Hydrographic Service",
+      "url": "https://tides.gc.ca/"
+    }
+  ]
+}
